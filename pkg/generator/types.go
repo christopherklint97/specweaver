@@ -4,17 +4,17 @@ import (
 	"fmt"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/christopherklint97/specweaver/pkg/openapi"
 )
 
 // TypeGenerator generates Go types from OpenAPI schemas
 type TypeGenerator struct {
-	spec      *openapi3.T
+	spec      *openapi.Document
 	generated map[string]bool
 }
 
 // NewTypeGenerator creates a new TypeGenerator instance
-func NewTypeGenerator(spec *openapi3.T) *TypeGenerator {
+func NewTypeGenerator(spec *openapi.Document) *TypeGenerator {
 	return &TypeGenerator{
 		spec:      spec,
 		generated: make(map[string]bool),
@@ -45,7 +45,7 @@ func (g *TypeGenerator) Generate() (string, error) {
 }
 
 // generateType generates a Go type from an OpenAPI schema
-func (g *TypeGenerator) generateType(sb *strings.Builder, name string, schema *openapi3.Schema) error {
+func (g *TypeGenerator) generateType(sb *strings.Builder, name string, schema *openapi.Schema) error {
 	if g.generated[name] {
 		return nil
 	}
@@ -85,7 +85,7 @@ func (g *TypeGenerator) generateType(sb *strings.Builder, name string, schema *o
 }
 
 // generateStruct generates a Go struct from an object schema
-func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema *openapi3.Schema) {
+func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema *openapi.Schema) {
 	sb.WriteString(fmt.Sprintf("type %s struct {\n", name))
 
 	if schema.Properties != nil {
@@ -121,7 +121,7 @@ func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema 
 }
 
 // generateEnum generates Go constants for enum values
-func (g *TypeGenerator) generateEnum(sb *strings.Builder, name string, schema *openapi3.Schema) {
+func (g *TypeGenerator) generateEnum(sb *strings.Builder, name string, schema *openapi.Schema) {
 	sb.WriteString(fmt.Sprintf("type %s string\n\n", name))
 	sb.WriteString("const (\n")
 
@@ -136,7 +136,7 @@ func (g *TypeGenerator) generateEnum(sb *strings.Builder, name string, schema *o
 }
 
 // resolveTypeWithRef resolves the Go type from a schema reference
-func (g *TypeGenerator) resolveTypeWithRef(ref *openapi3.SchemaRef) string {
+func (g *TypeGenerator) resolveTypeWithRef(ref *openapi.SchemaRef) string {
 	if ref == nil {
 		return "any"
 	}
@@ -155,7 +155,7 @@ func (g *TypeGenerator) resolveTypeWithRef(ref *openapi3.SchemaRef) string {
 }
 
 // resolveType resolves the Go type for an OpenAPI schema
-func (g *TypeGenerator) resolveType(schema *openapi3.Schema) string {
+func (g *TypeGenerator) resolveType(schema *openapi.Schema) string {
 	if schema == nil {
 		return "any"
 	}
@@ -200,7 +200,7 @@ func (g *TypeGenerator) resolveType(schema *openapi3.Schema) string {
 }
 
 // mapOpenAPITypeToGo maps OpenAPI types to Go types
-func mapOpenAPITypeToGo(schema *openapi3.Schema) string {
+func mapOpenAPITypeToGo(schema *openapi.Schema) string {
 	schemaType := getSchemaType(schema)
 
 	switch schemaType {
@@ -224,21 +224,13 @@ func mapOpenAPITypeToGo(schema *openapi3.Schema) string {
 }
 
 // getSchemaType extracts the type from an OpenAPI schema
-// Handles both string types (older versions) and *openapi3.Types (newer versions)
-func getSchemaType(schema *openapi3.Schema) string {
+// Handles both OpenAPI 3.0 (single type) and 3.1+ (array of types)
+func getSchemaType(schema *openapi.Schema) string {
 	if schema == nil {
 		return ""
 	}
 
-	// In newer versions of kin-openapi, Type is *openapi3.Types (a slice)
-	if schema.Type != nil {
-		types := *schema.Type
-		if len(types) > 0 {
-			return types[0]
-		}
-	}
-
-	return ""
+	return schema.GetSchemaType()
 }
 
 // Helper functions

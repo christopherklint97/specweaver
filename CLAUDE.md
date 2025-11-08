@@ -37,13 +37,15 @@ specweaver/
 
 ### Key Components
 
-#### 1. Parser (`pkg/parser/parser.go`)
+#### 1. Parser (`pkg/parser/parser.go` and `pkg/openapi/`)
 - **Purpose**: Load and validate OpenAPI specifications
-- **Library**: Uses `github.com/getkin/kin-openapi/openapi3` for spec parsing
+- **Implementation**: Custom robust OpenAPI parser (no external dependencies)
 - **Features**:
-  - Supports OpenAPI 3.x (tested with 3.1.0, compatible with 3.2)
+  - Supports OpenAPI 3.0.x, 3.1.x, and 3.2.x
   - Validates specs before code generation
-  - Handles external references
+  - Handles internal references ($ref resolution)
+  - Supports both YAML and JSON formats
+  - Type normalization for compatibility across versions
 
 #### 2. Type Generator (`pkg/generator/types.go`)
 - **Purpose**: Convert OpenAPI schemas to Go types
@@ -105,7 +107,11 @@ The type resolution system handles several cases:
 
 ### OpenAPI 3.x Compatibility
 
-The generator handles the OpenAPI 3.x type system where `schema.Type` is `*openapi3.Types` (a slice of strings):
+The generator uses a custom OpenAPI parser that supports all versions:
+- **OpenAPI 3.0.x**: Handles `type` as a single string value
+- **OpenAPI 3.1.x**: Handles `type` as an array of strings (JSON Schema 2020-12)
+- **OpenAPI 3.2.x**: Full support for the latest specification
+- Custom unmarshaling logic normalizes type fields across versions
 - Uses `getSchemaType()` helper to safely extract the primary type
 - Handles schemas without explicit types (inferred from properties)
 
@@ -161,8 +167,8 @@ See `examples/server/main.go` for a complete implementation.
 ## Dependencies
 
 ### Runtime Dependencies
-- `github.com/getkin/kin-openapi/openapi3` - OpenAPI parsing
-- `github.com/go-chi/chi/v5` - HTTP routing (in generated code)
+- `gopkg.in/yaml.v3` - YAML parsing
+- No external OpenAPI library dependencies (custom implementation)
 
 ### Generated Code Dependencies
 Generated code requires:
@@ -170,7 +176,7 @@ Generated code requires:
 - `net/http` - HTTP server
 - `io` - Request body reading
 - `time` - DateTime handling
-- `github.com/go-chi/chi/v5` - Router
+- `github.com/go-chi/chi/v5` - HTTP Router
 
 ## Development History
 
@@ -182,9 +188,12 @@ Generated code requires:
    - Added dependencies
 
 2. **Parser Implementation**
-   - Integrated kin-openapi library
-   - Added validation support
-   - Implemented file loading
+   - Created custom OpenAPI parser (`pkg/openapi/`)
+   - Support for OpenAPI 3.0.x, 3.1.x, and 3.2.x
+   - YAML and JSON format support
+   - Reference resolution ($ref handling)
+   - Type normalization across versions
+   - Validation support
 
 3. **Type Generator**
    - Initial schema to struct conversion
@@ -210,10 +219,15 @@ Generated code requires:
 
 ### Key Improvements Made
 
-1. **Type System Compatibility**: Updated to work with OpenAPI 3.x type system (slice-based types)
-2. **Naming Improvements**: Enhanced PascalCase conversion to handle compound words correctly
-3. **Reference Resolution**: Proper handling of `$ref` to generate correct type names instead of `map[string]any`
-4. **Code Quality**: Added comprehensive comments and documentation
+1. **Custom OpenAPI Parser**: Replaced external dependency with robust custom implementation
+   - Supports OpenAPI 3.0.x, 3.1.x, and 3.2.x
+   - No external OpenAPI library dependencies
+   - Better control over parsing and validation
+2. **Type System Compatibility**: Handles both single type (3.0) and array types (3.1+)
+3. **Naming Improvements**: Enhanced PascalCase conversion to handle compound words correctly
+4. **Reference Resolution**: Proper handling of `$ref` to generate correct type names instead of `map[string]any`
+5. **Code Quality**: Added comprehensive comments and documentation
+6. **Modern Go**: Using `any` instead of `interface{}` throughout
 
 ## Future Enhancements (Potential)
 
@@ -229,10 +243,12 @@ Generated code requires:
 
 The generator has been tested with:
 - OpenAPI 3.1.0 specification (examples/petstore.yaml)
+- Compatible with OpenAPI 3.0.x, 3.1.x, and 3.2.x
 - Various schema types (objects, arrays, enums, primitives)
-- Schema references
+- Schema references ($ref resolution)
 - Optional and required fields
 - Multiple HTTP methods and paths
+- Both YAML and JSON input formats
 
 ## Contributing
 

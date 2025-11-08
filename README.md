@@ -2,17 +2,19 @@
 
 > A powerful OpenAPI 3.x Go code generator that weaves your API specifications into production-ready server code.
 
-SpecWeaver automatically generates type-safe Go code from OpenAPI specifications, including data types, HTTP handlers, and routing logic. It supports OpenAPI 3.x (tested with 3.1, compatible with 3.2).
+SpecWeaver automatically generates type-safe Go code from OpenAPI specifications, including data types, HTTP handlers, and routing logic. Uses a custom robust OpenAPI parser supporting versions 3.0.x, 3.1.x, and 3.2.x with no external OpenAPI dependencies.
 
 ## Features
 
-- ✨ **Full OpenAPI 3.x Support** - Compatible with OpenAPI 3.0, 3.1, and 3.2
+- ✨ **Full OpenAPI 3.x Support** - Compatible with OpenAPI 3.0.x, 3.1.x, and 3.2.x
+- 🔧 **Custom Robust Parser** - No external OpenAPI library dependencies
 - 🎯 **Type-Safe Code** - Generates idiomatic Go structs with proper types
 - 🚀 **Production Ready** - Includes error handling, middleware, and best practices
 - 📝 **Documentation Preserved** - OpenAPI descriptions become Go comments
 - 🔄 **Schema References** - Properly resolves `$ref` to generate correct types
-- 🎨 **Idiomatic Go** - Follows Go conventions and best practices
+- 🎨 **Idiomatic Go** - Follows Go conventions and best practices (uses `any` instead of `interface{}`)
 - ⚡ **Fast & Lightweight** - Uses chi router for minimal overhead
+- 📄 **Format Support** - Works with both YAML and JSON specifications
 
 ## Installation
 
@@ -199,7 +201,8 @@ SpecWeaver intelligently maps OpenAPI types to Go:
 specweaver/
 ├── cmd/specweaver/     # CLI tool
 ├── pkg/
-│   ├── parser/         # OpenAPI spec parser
+│   ├── openapi/        # Custom OpenAPI parser (3.0-3.2 support)
+│   ├── parser/         # Parser coordinator
 │   └── generator/      # Code generators
 ├── examples/           # Example specs and implementations
 └── generated/          # Default output directory
@@ -207,8 +210,12 @@ specweaver/
 
 ## Dependencies
 
-- [kin-openapi](https://github.com/getkin/kin-openapi) - OpenAPI 3 parser
-- [chi](https://github.com/go-chi/chi) - Lightweight HTTP router
+### Build Dependencies
+- [gopkg.in/yaml.v3](https://gopkg.in/yaml.v3) - YAML parsing
+- **No external OpenAPI library dependencies** - Custom implementation for maximum control
+
+### Generated Code Dependencies
+- [chi](https://github.com/go-chi/chi) - Lightweight HTTP router (used in generated server code)
 
 ## Development
 
@@ -220,6 +227,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Built with [kin-openapi](https://github.com/getkin/kin-openapi) for robust OpenAPI parsing
-- Uses [chi router](https://github.com/go-chi/chi) for clean, fast routing
+- Uses [chi router](https://github.com/go-chi/chi) for clean, fast routing in generated code
+- Uses [gopkg.in/yaml.v3](https://gopkg.in/yaml.v3) for YAML parsing
+- Custom OpenAPI 3.x parser supporting versions 3.0 through 3.2
 - Inspired by the OpenAPI Generator project and the Go community's best practices

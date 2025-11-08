@@ -5,16 +5,16 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/christopherklint97/specweaver/pkg/openapi"
 )
 
 // ServerGenerator generates Go server code from OpenAPI paths
 type ServerGenerator struct {
-	spec *openapi3.T
+	spec *openapi.Document
 }
 
 // NewServerGenerator creates a new ServerGenerator instance
-func NewServerGenerator(spec *openapi3.T) *ServerGenerator {
+func NewServerGenerator(spec *openapi.Document) *ServerGenerator {
 	return &ServerGenerator{
 		spec: spec,
 	}
@@ -61,8 +61,8 @@ func (g *ServerGenerator) generateServerInterface(sb *strings.Builder) error {
 		return nil
 	}
 
-	for path, pathItem := range g.spec.Paths.Map() {
-		operations := map[string]*openapi3.Operation{
+	for path, pathItem := range g.spec.Paths {
+		operations := map[string]*openapi.Operation{
 			http.MethodGet:    pathItem.Get,
 			http.MethodPost:   pathItem.Post,
 			http.MethodPut:    pathItem.Put,
@@ -115,10 +115,10 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	sb.WriteString("\n")
 
 	if g.spec.Paths != nil {
-		for path, pathItem := range g.spec.Paths.Map() {
+		for path, pathItem := range g.spec.Paths {
 			chiPath := convertToChiPath(path)
 
-			operations := map[string]*openapi3.Operation{
+			operations := map[string]*openapi.Operation{
 				http.MethodGet:    pathItem.Get,
 				http.MethodPost:   pathItem.Post,
 				http.MethodPut:    pathItem.Put,

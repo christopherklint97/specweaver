@@ -5,12 +5,12 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/christopherklint97/specweaver/pkg/openapi"
 )
 
 // Generator coordinates the generation of Go code from OpenAPI specs
 type Generator struct {
-	spec       *openapi3.T
+	spec       *openapi.Document
 	outputDir  string
 	packageName string
 }
@@ -22,7 +22,7 @@ type Config struct {
 }
 
 // NewGenerator creates a new Generator instance
-func NewGenerator(spec *openapi3.T, config Config) *Generator {
+func NewGenerator(spec *openapi.Document, config Config) *Generator {
 	if config.PackageName == "" {
 		config.PackageName = "api"
 	}

@@ -1,16 +1,14 @@
 package parser
 
 import (
-	"context"
 	"fmt"
-	"os"
 
-	"github.com/getkin/kin-openapi/openapi3"
+	"github.com/christopherklint97/specweaver/pkg/openapi"
 )
 
 // Parser handles OpenAPI specification parsing
 type Parser struct {
-	spec *openapi3.T
+	spec *openapi.Document
 }
 
 // New creates a new Parser instance
@@ -19,23 +17,11 @@ func New() *Parser {
 }
 
 // ParseFile loads and parses an OpenAPI specification from a file
+// Supports OpenAPI 3.0.x, 3.1.x, and 3.2.x
 func (p *Parser) ParseFile(filePath string) error {
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		return fmt.Errorf("failed to read file: %w", err)
-	}
-
-	loader := openapi3.NewLoader()
-	loader.IsExternalRefsAllowed = true
-
-	spec, err := loader.LoadFromData(data)
+	spec, err := openapi.Load(filePath)
 	if err != nil {
 		return fmt.Errorf("failed to load OpenAPI spec: %w", err)
-	}
-
-	// Validate the specification
-	if err := spec.Validate(context.Background()); err != nil {
-		return fmt.Errorf("OpenAPI spec validation failed: %w", err)
 	}
 
 	p.spec = spec
@@ -43,7 +29,7 @@ func (p *Parser) ParseFile(filePath string) error {
 }
 
 // GetSpec returns the parsed OpenAPI specification
-func (p *Parser) GetSpec() *openapi3.T {
+func (p *Parser) GetSpec() *openapi.Document {
 	return p.spec
 }
 
