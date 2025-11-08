@@ -7,7 +7,7 @@
 *.dll
 *.so
 *.dylib
-specweaver
+/specweaver
 
 # Test binary, built with `go test -c`
 *.test
