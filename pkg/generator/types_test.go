@@ -5,6 +5,8 @@ import (
 	"testing"
 
 	"github.com/christopherklint97/specweaver/pkg/openapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewTypeGenerator(t *testing.T) {
@@ -17,17 +19,10 @@ func TestNewTypeGenerator(t *testing.T) {
 	}
 
 	gen := NewTypeGenerator(spec)
-	if gen == nil {
-		t.Fatal("Expected type generator to be created")
-	}
+	require.NotNil(t, gen, "Expected type generator to be created")
 
-	if gen.spec != spec {
-		t.Error("Expected spec to be set")
-	}
-
-	if gen.generated == nil {
-		t.Error("Expected generated map to be initialized")
-	}
+	assert.Equal(t, spec, gen.spec, "Expected spec to be set")
+	assert.NotNil(t, gen.generated, "Expected generated map to be initialized")
 }
 
 func TestGenerateSimpleTypes(t *testing.T) {
@@ -65,47 +60,27 @@ func TestGenerateSimpleTypes(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check package declaration
-	if !strings.Contains(code, "package api") {
-		t.Error("Expected package declaration")
-	}
+	assert.Contains(t, code, "package api", "Expected package declaration")
 
 	// Check imports
-	if !strings.Contains(code, "import") {
-		t.Error("Expected import section")
-	}
+	assert.Contains(t, code, "import", "Expected import section")
 
 	// Check type declaration
-	if !strings.Contains(code, "type Pet struct") {
-		t.Error("Expected Pet struct declaration")
-	}
+	assert.Contains(t, code, "type Pet struct", "Expected Pet struct declaration")
 
 	// Check fields
-	if !strings.Contains(code, "Name string") {
-		t.Error("Expected Name field")
-	}
-
-	if !strings.Contains(code, "Age int") {
-		t.Error("Expected Age field")
-	}
+	assert.Contains(t, code, "Name string", "Expected Name field")
+	assert.Contains(t, code, "Age int", "Expected Age field")
 
 	// Check JSON tags
-	if !strings.Contains(code, `json:"name"`) {
-		t.Error("Expected JSON tag for name field")
-	}
-
-	if !strings.Contains(code, `json:"age,omitempty"`) {
-		t.Error("Expected JSON tag with omitempty for optional field")
-	}
+	assert.Contains(t, code, `json:"name"`, "Expected JSON tag for name field")
+	assert.Contains(t, code, `json:"age,omitempty"`, "Expected JSON tag with omitempty for optional field")
 
 	// Check description comment
-	if !strings.Contains(code, "// Pet A pet object") {
-		t.Error("Expected type description comment")
-	}
+	assert.Contains(t, code, "// Pet A pet object", "Expected type description comment")
 }
 
 func TestGenerateEnum(t *testing.T) {
@@ -130,37 +105,21 @@ func TestGenerateEnum(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check type declaration
-	if !strings.Contains(code, "type PetStatus string") {
-		t.Error("Expected PetStatus type declaration")
-	}
+	assert.Contains(t, code, "type PetStatus string", "Expected PetStatus type declaration")
 
 	// Check const declaration
-	if !strings.Contains(code, "const (") {
-		t.Error("Expected const declaration")
-	}
+	assert.Contains(t, code, "const (", "Expected const declaration")
 
 	// Check enum constants
-	if !strings.Contains(code, "PetStatusAvailable") {
-		t.Error("Expected PetStatusAvailable constant")
-	}
-
-	if !strings.Contains(code, "PetStatusPending") {
-		t.Error("Expected PetStatusPending constant")
-	}
-
-	if !strings.Contains(code, "PetStatusSold") {
-		t.Error("Expected PetStatusSold constant")
-	}
+	assert.Contains(t, code, "PetStatusAvailable", "Expected PetStatusAvailable constant")
+	assert.Contains(t, code, "PetStatusPending", "Expected PetStatusPending constant")
+	assert.Contains(t, code, "PetStatusSold", "Expected PetStatusSold constant")
 
 	// Check enum values
-	if !strings.Contains(code, `= "available"`) {
-		t.Error("Expected available enum value")
-	}
+	assert.Contains(t, code, `= "available"`, "Expected available enum value")
 }
 
 func TestGenerateArrayType(t *testing.T) {
@@ -188,13 +147,9 @@ func TestGenerateArrayType(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
-	if !strings.Contains(code, "type PetList []string") {
-		t.Error("Expected PetList array type")
-	}
+	assert.Contains(t, code, "type PetList []string", "Expected PetList array type")
 }
 
 func TestGenerateNestedObject(t *testing.T) {
@@ -241,23 +196,14 @@ func TestGenerateNestedObject(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check that both types are generated
-	if !strings.Contains(code, "type Owner struct") {
-		t.Error("Expected Owner struct")
-	}
-
-	if !strings.Contains(code, "type Pet struct") {
-		t.Error("Expected Pet struct")
-	}
+	assert.Contains(t, code, "type Owner struct", "Expected Owner struct")
+	assert.Contains(t, code, "type Pet struct", "Expected Pet struct")
 
 	// Check that Pet has Owner field with pointer (optional)
-	if !strings.Contains(code, "Owner *Owner") {
-		t.Error("Expected Owner field in Pet with pointer type")
-	}
+	assert.Contains(t, code, "Owner *Owner", "Expected Owner field in Pet with pointer type")
 }
 
 func TestGenerateTimeType(t *testing.T) {
@@ -289,23 +235,14 @@ func TestGenerateTimeType(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check time import
-	if !strings.Contains(code, `"time"`) {
-		t.Error("Expected time import")
-	}
+	assert.Contains(t, code, `"time"`, "Expected time import")
 
 	// Check time.Time field (with proper spacing and JSON tag)
-	if !strings.Contains(code, "time.Time") {
-		t.Error("Expected time.Time type in generated code")
-	}
-
-	if !strings.Contains(code, "Timestamp") {
-		t.Error("Expected Timestamp field name")
-	}
+	assert.Contains(t, code, "time.Time", "Expected time.Time type in generated code")
+	assert.Contains(t, code, "Timestamp", "Expected Timestamp field name")
 }
 
 func TestToPascalCase(t *testing.T) {
@@ -327,9 +264,7 @@ func TestToPascalCase(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := toPascalCase(tt.input)
-			if result != tt.expected {
-				t.Errorf("toPascalCase(%s) = %s, expected %s", tt.input, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "toPascalCase(%s)", tt.input)
 		})
 	}
 }
@@ -349,14 +284,10 @@ func TestSplitWords(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := splitWords(tt.input)
-			if len(result) != len(tt.expected) {
-				t.Fatalf("Expected %d words, got %d", len(tt.expected), len(result))
-			}
+			assert.Len(t, result, len(tt.expected), "Expected %d words", len(tt.expected))
 
 			for i, word := range result {
-				if word != tt.expected[i] {
-					t.Errorf("Word %d: expected %s, got %s", i, tt.expected[i], word)
-				}
+				assert.Equal(t, tt.expected[i], word, "Word %d", i)
 			}
 		})
 	}
@@ -383,9 +314,7 @@ func TestIsPrimitiveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.input, func(t *testing.T) {
 			result := isPrimitiveType(tt.input)
-			if result != tt.expected {
-				t.Errorf("isPrimitiveType(%s) = %v, expected %v", tt.input, result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "isPrimitiveType(%s)", tt.input)
 		})
 	}
 }
@@ -455,9 +384,7 @@ func TestResolveType(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := gen.resolveType(tt.schema)
-			if result != tt.expected {
-				t.Errorf("resolveType() = %s, expected %s", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "resolveType()")
 		})
 	}
 }
@@ -503,9 +430,7 @@ func TestResolveTypeWithRef(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := gen.resolveTypeWithRef(tt.ref)
-			if result != tt.expected {
-				t.Errorf("resolveTypeWithRef() = %s, expected %s", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "resolveTypeWithRef()")
 		})
 	}
 }
@@ -522,19 +447,13 @@ func TestGenerateWithNoComponents(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Should still generate valid Go code with package and imports
-	if !strings.Contains(code, "package api") {
-		t.Error("Expected package declaration")
-	}
+	assert.Contains(t, code, "package api", "Expected package declaration")
 
 	// Should not have any type declarations (besides imports)
-	if strings.Contains(code, "type ") {
-		t.Error("Expected no type declarations for empty spec")
-	}
+	assert.False(t, strings.Contains(code, "type "), "Expected no type declarations for empty spec")
 }
 
 func TestGenerateMultipleTypes(t *testing.T) {
@@ -576,22 +495,12 @@ func TestGenerateMultipleTypes(t *testing.T) {
 
 	gen := NewTypeGenerator(spec)
 	code, err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check all types are generated
-	if !strings.Contains(code, "type Pet struct") {
-		t.Error("Expected Pet struct")
-	}
-
-	if !strings.Contains(code, "type Owner struct") {
-		t.Error("Expected Owner struct")
-	}
-
-	if !strings.Contains(code, "type Store struct") {
-		t.Error("Expected Store struct")
-	}
+	assert.Contains(t, code, "type Pet struct", "Expected Pet struct")
+	assert.Contains(t, code, "type Owner struct", "Expected Owner struct")
+	assert.Contains(t, code, "type Store struct", "Expected Store struct")
 }
 
 func TestContains(t *testing.T) {
@@ -609,9 +518,7 @@ func TestContains(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			result := contains(tt.slice, tt.item)
-			if result != tt.expected {
-				t.Errorf("contains() = %v, expected %v", result, tt.expected)
-			}
+			assert.Equal(t, tt.expected, result, "contains()")
 		})
 	}
 }

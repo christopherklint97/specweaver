@@ -2,6 +2,8 @@ package openapi
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 func TestDocumentStructure(t *testing.T) {
@@ -16,13 +18,8 @@ func TestDocumentStructure(t *testing.T) {
 			refCache: make(map[string]any),
 		}
 
-		if doc.OpenAPI != "3.1.0" {
-			t.Errorf("Expected OpenAPI '3.1.0', got %s", doc.OpenAPI)
-		}
-
-		if doc.Info.Title != "Test API" {
-			t.Errorf("Expected title 'Test API', got %s", doc.Info.Title)
-		}
+		assert.Equal(t, "3.1.0", doc.OpenAPI)
+		assert.Equal(t, "Test API", doc.Info.Title)
 	})
 
 	t.Run("Create document with components", func(t *testing.T) {
@@ -44,13 +41,8 @@ func TestDocumentStructure(t *testing.T) {
 			refCache: make(map[string]any),
 		}
 
-		if doc.Components == nil {
-			t.Error("Expected components to be set")
-		}
-
-		if len(doc.Components.Schemas) != 1 {
-			t.Errorf("Expected 1 schema, got %d", len(doc.Components.Schemas))
-		}
+		assert.NotNil(t, doc.Components)
+		assert.Len(t, doc.Components.Schemas, 1)
 	})
 }
 
@@ -71,25 +63,11 @@ func TestInfoStructure(t *testing.T) {
 			},
 		}
 
-		if info.Title != "Complete API" {
-			t.Errorf("Expected title 'Complete API', got %s", info.Title)
-		}
-
-		if info.Contact == nil {
-			t.Error("Expected contact to be set")
-		}
-
-		if info.Contact.Email != "team@example.com" {
-			t.Errorf("Expected email 'team@example.com', got %s", info.Contact.Email)
-		}
-
-		if info.License == nil {
-			t.Error("Expected license to be set")
-		}
-
-		if info.License.Name != "MIT" {
-			t.Errorf("Expected license 'MIT', got %s", info.License.Name)
-		}
+		assert.Equal(t, "Complete API", info.Title)
+		assert.NotNil(t, info.Contact)
+		assert.Equal(t, "team@example.com", info.Contact.Email)
+		assert.NotNil(t, info.License)
+		assert.Equal(t, "MIT", info.License.Name)
 	})
 }
 
@@ -106,17 +84,9 @@ func TestPathItemStructure(t *testing.T) {
 			},
 		}
 
-		if pathItem.Get == nil {
-			t.Error("Expected GET operation to be set")
-		}
-
-		if pathItem.Get.OperationID != "getItem" {
-			t.Errorf("Expected operation ID 'getItem', got %s", pathItem.Get.OperationID)
-		}
-
-		if pathItem.Post == nil {
-			t.Error("Expected POST operation to be set")
-		}
+		assert.NotNil(t, pathItem.Get)
+		assert.Equal(t, "getItem", pathItem.Get.OperationID)
+		assert.NotNil(t, pathItem.Post)
 	})
 }
 
@@ -145,21 +115,10 @@ func TestOperationStructure(t *testing.T) {
 			},
 		}
 
-		if op.OperationID != "testOp" {
-			t.Errorf("Expected operation ID 'testOp', got %s", op.OperationID)
-		}
-
-		if len(op.Parameters) != 1 {
-			t.Errorf("Expected 1 parameter, got %d", len(op.Parameters))
-		}
-
-		if op.Parameters[0].Name != "id" {
-			t.Errorf("Expected parameter name 'id', got %s", op.Parameters[0].Name)
-		}
-
-		if len(op.Responses) != 1 {
-			t.Errorf("Expected 1 response, got %d", len(op.Responses))
-		}
+		assert.Equal(t, "testOp", op.OperationID)
+		assert.Len(t, op.Parameters, 1)
+		assert.Equal(t, "id", op.Parameters[0].Name)
+		assert.Len(t, op.Responses, 1)
 	})
 
 	t.Run("Operation with request body", func(t *testing.T) {
@@ -178,17 +137,9 @@ func TestOperationStructure(t *testing.T) {
 			},
 		}
 
-		if op.RequestBody == nil {
-			t.Error("Expected request body to be set")
-		}
-
-		if !op.RequestBody.Required {
-			t.Error("Expected request body to be required")
-		}
-
-		if len(op.RequestBody.Content) != 1 {
-			t.Errorf("Expected 1 media type, got %d", len(op.RequestBody.Content))
-		}
+		assert.NotNil(t, op.RequestBody)
+		assert.True(t, op.RequestBody.Required)
+		assert.Len(t, op.RequestBody.Content, 1)
 	})
 }
 
@@ -201,17 +152,9 @@ func TestSchemaStructure(t *testing.T) {
 			MaxLength:   intPtr(100),
 		}
 
-		if schema.GetSchemaType() != "string" {
-			t.Errorf("Expected type 'string', got %s", schema.GetSchemaType())
-		}
-
-		if *schema.MinLength != 1 {
-			t.Errorf("Expected minLength 1, got %d", *schema.MinLength)
-		}
-
-		if *schema.MaxLength != 100 {
-			t.Errorf("Expected maxLength 100, got %d", *schema.MaxLength)
-		}
+		assert.Equal(t, "string", schema.GetSchemaType())
+		assert.Equal(t, 1, *schema.MinLength)
+		assert.Equal(t, 100, *schema.MaxLength)
 	})
 
 	t.Run("Object schema with properties", func(t *testing.T) {
@@ -233,17 +176,9 @@ func TestSchemaStructure(t *testing.T) {
 			Required: []string{"id", "name"},
 		}
 
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
-
-		if len(schema.Properties) != 2 {
-			t.Errorf("Expected 2 properties, got %d", len(schema.Properties))
-		}
-
-		if len(schema.Required) != 2 {
-			t.Errorf("Expected 2 required fields, got %d", len(schema.Required))
-		}
+		assert.Equal(t, "object", schema.GetSchemaType())
+		assert.Len(t, schema.Properties, 2)
+		assert.Len(t, schema.Required, 2)
 	})
 
 	t.Run("Array schema", func(t *testing.T) {
@@ -258,39 +193,23 @@ func TestSchemaStructure(t *testing.T) {
 			MaxItems: intPtr(10),
 		}
 
-		if schema.GetSchemaType() != "array" {
-			t.Errorf("Expected type 'array', got %s", schema.GetSchemaType())
-		}
-
-		if schema.Items == nil {
-			t.Error("Expected items to be set")
-		}
-
-		if *schema.MinItems != 1 {
-			t.Errorf("Expected minItems 1, got %d", *schema.MinItems)
-		}
+		assert.Equal(t, "array", schema.GetSchemaType())
+		assert.NotNil(t, schema.Items)
+		assert.Equal(t, 1, *schema.MinItems)
 	})
 
 	t.Run("Number schema with validation", func(t *testing.T) {
 		schema := &Schema{
-			Type:     []string{"number"},
-			Format:   "float",
-			Minimum:  float64Ptr(0.0),
-			Maximum:  float64Ptr(100.0),
+			Type:       []string{"number"},
+			Format:     "float",
+			Minimum:    float64Ptr(0.0),
+			Maximum:    float64Ptr(100.0),
 			MultipleOf: float64Ptr(0.5),
 		}
 
-		if schema.GetSchemaType() != "number" {
-			t.Errorf("Expected type 'number', got %s", schema.GetSchemaType())
-		}
-
-		if schema.Format != "float" {
-			t.Errorf("Expected format 'float', got %s", schema.Format)
-		}
-
-		if *schema.Minimum != 0.0 {
-			t.Errorf("Expected minimum 0.0, got %f", *schema.Minimum)
-		}
+		assert.Equal(t, "number", schema.GetSchemaType())
+		assert.Equal(t, "float", schema.Format)
+		assert.Equal(t, 0.0, *schema.Minimum)
 	})
 
 	t.Run("Enum schema", func(t *testing.T) {
@@ -299,9 +218,7 @@ func TestSchemaStructure(t *testing.T) {
 			Enum: []any{"available", "pending", "sold"},
 		}
 
-		if len(schema.Enum) != 3 {
-			t.Errorf("Expected 3 enum values, got %d", len(schema.Enum))
-		}
+		assert.Len(t, schema.Enum, 3)
 	})
 
 	t.Run("Schema with composition (allOf)", func(t *testing.T) {
@@ -322,9 +239,7 @@ func TestSchemaStructure(t *testing.T) {
 			},
 		}
 
-		if len(schema.AllOf) != 2 {
-			t.Errorf("Expected 2 allOf schemas, got %d", len(schema.AllOf))
-		}
+		assert.Len(t, schema.AllOf, 2)
 	})
 }
 
@@ -341,17 +256,9 @@ func TestParameterStructure(t *testing.T) {
 			},
 		}
 
-		if param.Name != "id" {
-			t.Errorf("Expected name 'id', got %s", param.Name)
-		}
-
-		if param.In != "path" {
-			t.Errorf("Expected in 'path', got %s", param.In)
-		}
-
-		if !param.Required {
-			t.Error("Expected parameter to be required")
-		}
+		assert.Equal(t, "id", param.Name)
+		assert.Equal(t, "path", param.In)
+		assert.True(t, param.Required)
 	})
 
 	t.Run("Query parameter", func(t *testing.T) {
@@ -367,13 +274,8 @@ func TestParameterStructure(t *testing.T) {
 			},
 		}
 
-		if param.In != "query" {
-			t.Errorf("Expected in 'query', got %s", param.In)
-		}
-
-		if param.Required {
-			t.Error("Expected parameter to be optional")
-		}
+		assert.Equal(t, "query", param.In)
+		assert.False(t, param.Required)
 	})
 }
 
@@ -400,17 +302,9 @@ func TestComponentsStructure(t *testing.T) {
 			},
 		}
 
-		if len(components.Schemas) != 1 {
-			t.Errorf("Expected 1 schema, got %d", len(components.Schemas))
-		}
-
-		if len(components.Responses) != 1 {
-			t.Errorf("Expected 1 response, got %d", len(components.Responses))
-		}
-
-		if len(components.SecuritySchemes) != 1 {
-			t.Errorf("Expected 1 security scheme, got %d", len(components.SecuritySchemes))
-		}
+		assert.Len(t, components.Schemas, 1)
+		assert.Len(t, components.Responses, 1)
+		assert.Len(t, components.SecuritySchemes, 1)
 	})
 }
 

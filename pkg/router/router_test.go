@@ -5,25 +5,17 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewRouter(t *testing.T) {
 	router := NewRouter()
-	if router == nil {
-		t.Fatal("Expected router to be created")
-	}
-
-	if router.routes == nil {
-		t.Error("Expected routes to be initialized")
-	}
-
-	if router.middleware == nil {
-		t.Error("Expected middleware to be initialized")
-	}
-
-	if router.notFound == nil {
-		t.Error("Expected notFound handler to be initialized")
-	}
+	require.NotNil(t, router, "Expected router to be created")
+	assert.NotNil(t, router.routes, "Expected routes to be initialized")
+	assert.NotNil(t, router.middleware, "Expected middleware to be initialized")
+	assert.NotNil(t, router.notFound, "Expected notFound handler to be initialized")
 }
 
 func TestRouterGet(t *testing.T) {
@@ -41,18 +33,9 @@ func TestRouterGet(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if !called {
-		t.Error("Handler was not called")
-	}
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	body := w.Body.String()
-	if body != "GET test" {
-		t.Errorf("Expected body 'GET test', got %s", body)
-	}
+	assert.True(t, called, "Handler was not called")
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.Equal(t, "GET test", w.Body.String())
 }
 
 func TestRouterPost(t *testing.T) {
@@ -70,13 +53,8 @@ func TestRouterPost(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if !called {
-		t.Error("Handler was not called")
-	}
-
-	if w.Code != http.StatusCreated {
-		t.Errorf("Expected status 201, got %d", w.Code)
-	}
+	assert.True(t, called, "Handler was not called")
+	assert.Equal(t, http.StatusCreated, w.Code)
 }
 
 func TestRouterPut(t *testing.T) {
@@ -91,9 +69,7 @@ func TestRouterPut(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRouterDelete(t *testing.T) {
@@ -108,9 +84,7 @@ func TestRouterDelete(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusNoContent {
-		t.Errorf("Expected status 204, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusNoContent, w.Code)
 }
 
 func TestRouterPatch(t *testing.T) {
@@ -125,9 +99,7 @@ func TestRouterPatch(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRouterOptions(t *testing.T) {
@@ -143,9 +115,7 @@ func TestRouterOptions(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRouterHead(t *testing.T) {
@@ -160,9 +130,7 @@ func TestRouterHead(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRouterURLParams(t *testing.T) {
@@ -172,13 +140,8 @@ func TestRouterURLParams(t *testing.T) {
 		userId := URLParam(r, "userId")
 		postId := URLParam(r, "postId")
 
-		if userId != "123" {
-			t.Errorf("Expected userId '123', got %s", userId)
-		}
-
-		if postId != "456" {
-			t.Errorf("Expected postId '456', got %s", postId)
-		}
+		assert.Equal(t, "123", userId)
+		assert.Equal(t, "456", postId)
 
 		w.WriteHeader(http.StatusOK)
 	})
@@ -188,9 +151,7 @@ func TestRouterURLParams(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestRouterURLParamNotFound(t *testing.T) {
@@ -198,9 +159,7 @@ func TestRouterURLParamNotFound(t *testing.T) {
 
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		param := URLParam(r, "nonexistent")
-		if param != "" {
-			t.Errorf("Expected empty string for non-existent param, got %s", param)
-		}
+		assert.Empty(t, param, "Expected empty string for non-existent param")
 		w.WriteHeader(http.StatusOK)
 	})
 
@@ -222,9 +181,7 @@ func TestRouterNotFound(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestRouterMethodNotAllowed(t *testing.T) {
@@ -240,9 +197,7 @@ func TestRouterMethodNotAllowed(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusNotFound {
-		t.Errorf("Expected status 404, got %d", w.Code)
-	}
+	assert.Equal(t, http.StatusNotFound, w.Code)
 }
 
 func TestRouterMiddleware(t *testing.T) {
@@ -267,9 +222,7 @@ func TestRouterMiddleware(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Header().Get("X-Test") != "middleware" {
-		t.Error("Expected middleware to set header")
-	}
+	assert.Equal(t, "middleware", w.Header().Get("X-Test"), "Expected middleware to set header")
 }
 
 func TestRouterMultipleMiddleware(t *testing.T) {
@@ -306,14 +259,10 @@ func TestRouterMultipleMiddleware(t *testing.T) {
 	router.ServeHTTP(w, req)
 
 	expected := []string{"m1-before", "m2-before", "handler", "m2-after", "m1-after"}
-	if len(order) != len(expected) {
-		t.Fatalf("Expected %d elements in order, got %d", len(expected), len(order))
-	}
+	require.Len(t, order, len(expected))
 
 	for i, v := range expected {
-		if order[i] != v {
-			t.Errorf("Expected order[%d] to be %s, got %s", i, v, order[i])
-		}
+		assert.Equal(t, v, order[i])
 	}
 }
 
@@ -359,17 +308,11 @@ func TestParsePattern(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			parts := parsePattern(tt.pattern)
 
-			if len(parts) != len(tt.expected) {
-				t.Fatalf("Expected %d parts, got %d", len(tt.expected), len(parts))
-			}
+			require.Len(t, parts, len(tt.expected))
 
 			for i, expected := range tt.expected {
-				if parts[i].isParam != expected.isParam {
-					t.Errorf("Part %d: expected isParam=%v, got %v", i, expected.isParam, parts[i].isParam)
-				}
-				if parts[i].value != expected.value {
-					t.Errorf("Part %d: expected value=%s, got %s", i, expected.value, parts[i].value)
-				}
+				assert.Equal(t, expected.isParam, parts[i].isParam, "Part %d: isParam mismatch", i)
+				assert.Equal(t, expected.value, parts[i].value, "Part %d: value mismatch", i)
 			}
 		})
 	}
@@ -377,10 +320,10 @@ func TestParsePattern(t *testing.T) {
 
 func TestMatchPattern(t *testing.T) {
 	tests := []struct {
-		name          string
-		pattern       string
-		path          string
-		shouldMatch   bool
+		name           string
+		pattern        string
+		path           string
+		shouldMatch    bool
 		expectedParams map[string]string
 	}{
 		{
@@ -422,10 +365,10 @@ func TestMatchPattern(t *testing.T) {
 			shouldMatch: false,
 		},
 		{
-			name:        "Root path",
-			pattern:     "/",
-			path:        "/",
-			shouldMatch: true,
+			name:           "Root path",
+			pattern:        "/",
+			path:           "/",
+			shouldMatch:    true,
 			expectedParams: map[string]string{},
 		},
 	}
@@ -435,19 +378,13 @@ func TestMatchPattern(t *testing.T) {
 			parts := parsePattern(tt.pattern)
 			params, matched := matchPattern(parts, tt.path)
 
-			if matched != tt.shouldMatch {
-				t.Errorf("Expected match=%v, got %v", tt.shouldMatch, matched)
-			}
+			assert.Equal(t, tt.shouldMatch, matched)
 
 			if tt.shouldMatch {
-				if len(params) != len(tt.expectedParams) {
-					t.Fatalf("Expected %d params, got %d", len(tt.expectedParams), len(params))
-				}
+				require.Len(t, params, len(tt.expectedParams))
 
 				for key, expectedValue := range tt.expectedParams {
-					if params[key] != expectedValue {
-						t.Errorf("Expected param %s=%s, got %s", key, expectedValue, params[key])
-					}
+					assert.Equal(t, expectedValue, params[key], "Param %s mismatch", key)
 				}
 			}
 		})
@@ -477,9 +414,7 @@ func TestRouterTrailingSlash(t *testing.T) {
 
 			router.ServeHTTP(w, req)
 
-			if w.Code != tt.code {
-				t.Errorf("Expected status %d, got %d", tt.code, w.Code)
-			}
+			assert.Equal(t, tt.code, w.Code)
 		})
 	}
 }
@@ -534,15 +469,12 @@ func TestRouterComplexRouting(t *testing.T) {
 
 			router.ServeHTTP(w, req)
 
-			if w.Code != tt.expectedCode {
-				t.Errorf("Expected status %d, got %d", tt.expectedCode, w.Code)
-			}
+			assert.Equal(t, tt.expectedCode, w.Code)
 
 			if tt.expectedBody != "" {
-				body, _ := io.ReadAll(w.Body)
-				if string(body) != tt.expectedBody {
-					t.Errorf("Expected body %s, got %s", tt.expectedBody, string(body))
-				}
+				body, err := io.ReadAll(w.Body)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedBody, string(body))
 			}
 		})
 	}

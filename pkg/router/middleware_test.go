@@ -6,8 +6,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strings"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLogger(t *testing.T) {
@@ -30,17 +32,9 @@ func TestLogger(t *testing.T) {
 
 	// Check that log was written
 	logOutput := buf.String()
-	if !strings.Contains(logOutput, "GET") {
-		t.Error("Expected log to contain method GET")
-	}
-
-	if !strings.Contains(logOutput, "/test") {
-		t.Error("Expected log to contain path /test")
-	}
-
-	if !strings.Contains(logOutput, "200") {
-		t.Error("Expected log to contain status code 200")
-	}
+	assert.Contains(t, logOutput, "GET", "Expected log to contain method GET")
+	assert.Contains(t, logOutput, "/test", "Expected log to contain path /test")
+	assert.Contains(t, logOutput, "200", "Expected log to contain status code 200")
 }
 
 func TestLoggerWithDifferentStatusCodes(t *testing.T) {
@@ -74,9 +68,7 @@ func TestLoggerWithDifferentStatusCodes(t *testing.T) {
 
 			// Just verify that the log was written
 			logOutput := buf.String()
-			if len(logOutput) == 0 {
-				t.Error("Expected log output to be written")
-			}
+			assert.NotEmpty(t, logOutput, "Expected log output to be written")
 		})
 	}
 }
@@ -91,13 +83,8 @@ func TestLoggingResponseWriter(t *testing.T) {
 
 		lrw.WriteHeader(http.StatusCreated)
 
-		if lrw.statusCode != http.StatusCreated {
-			t.Errorf("Expected status code %d, got %d", http.StatusCreated, lrw.statusCode)
-		}
-
-		if w.Code != http.StatusCreated {
-			t.Errorf("Expected underlying writer to have code %d, got %d", http.StatusCreated, w.Code)
-		}
+		assert.Equal(t, http.StatusCreated, lrw.statusCode)
+		assert.Equal(t, http.StatusCreated, w.Code)
 	})
 
 	t.Run("Default status code", func(t *testing.T) {
@@ -110,9 +97,7 @@ func TestLoggingResponseWriter(t *testing.T) {
 		// Write without calling WriteHeader
 		_, _ = lrw.Write([]byte("test"))
 
-		if lrw.statusCode != http.StatusOK {
-			t.Errorf("Expected default status code %d, got %d", http.StatusOK, lrw.statusCode)
-		}
+		assert.Equal(t, http.StatusOK, lrw.statusCode)
 	})
 }
 
@@ -133,18 +118,11 @@ func TestRecoverer(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if w.Code != http.StatusInternalServerError {
-			t.Errorf("Expected status 500, got %d", w.Code)
-		}
+		assert.Equal(t, http.StatusInternalServerError, w.Code)
 
 		logOutput := buf.String()
-		if !strings.Contains(logOutput, "panic recovered") {
-			t.Error("Expected log to contain panic message")
-		}
-
-		if !strings.Contains(logOutput, "test panic") {
-			t.Error("Expected log to contain panic value")
-		}
+		assert.Contains(t, logOutput, "panic recovered", "Expected log to contain panic message")
+		assert.Contains(t, logOutput, "test panic", "Expected log to contain panic value")
 	})
 
 	t.Run("No panic", func(t *testing.T) {
@@ -160,14 +138,8 @@ func TestRecoverer(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if w.Code != http.StatusOK {
-			t.Errorf("Expected status 200, got %d", w.Code)
-		}
-
-		body := w.Body.String()
-		if body != "no panic" {
-			t.Errorf("Expected body 'no panic', got %s", body)
-		}
+		assert.Equal(t, http.StatusOK, w.Code)
+		assert.Equal(t, "no panic", w.Body.String())
 	})
 }
 
@@ -187,18 +159,11 @@ func TestRequestID(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedID == "" {
-			t.Error("Expected request ID to be generated")
-		}
+		assert.NotEmpty(t, capturedID, "Expected request ID to be generated")
 
 		headerID := w.Header().Get("X-Request-ID")
-		if headerID == "" {
-			t.Error("Expected X-Request-ID header to be set")
-		}
-
-		if headerID != capturedID {
-			t.Error("Expected header ID to match context ID")
-		}
+		assert.NotEmpty(t, headerID, "Expected X-Request-ID header to be set")
+		assert.Equal(t, capturedID, headerID, "Expected header ID to match context ID")
 	})
 
 	t.Run("Use existing request ID", func(t *testing.T) {
@@ -218,14 +183,8 @@ func TestRequestID(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedID != existingID {
-			t.Errorf("Expected request ID %s, got %s", existingID, capturedID)
-		}
-
-		headerID := w.Header().Get("X-Request-ID")
-		if headerID != existingID {
-			t.Errorf("Expected header ID %s, got %s", existingID, headerID)
-		}
+		assert.Equal(t, existingID, capturedID)
+		assert.Equal(t, existingID, w.Header().Get("X-Request-ID"))
 	})
 }
 
@@ -233,9 +192,7 @@ func TestGetRequestID(t *testing.T) {
 	t.Run("Get request ID from context", func(t *testing.T) {
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			id := GetRequestID(r.Context())
-			if id == "" {
-				t.Error("Expected request ID to be in context")
-			}
+			assert.NotEmpty(t, id, "Expected request ID to be in context")
 			w.WriteHeader(http.StatusOK)
 		})
 
@@ -251,9 +208,7 @@ func TestGetRequestID(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/test", nil)
 		id := GetRequestID(req.Context())
 
-		if id != "" {
-			t.Errorf("Expected empty string, got %s", id)
-		}
+		assert.Empty(t, id)
 	})
 }
 
@@ -274,9 +229,7 @@ func TestRealIP(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedIP != "1.2.3.4" {
-			t.Errorf("Expected IP 1.2.3.4, got %s", capturedIP)
-		}
+		assert.Equal(t, "1.2.3.4", capturedIP)
 	})
 
 	t.Run("X-Real-IP header", func(t *testing.T) {
@@ -295,9 +248,7 @@ func TestRealIP(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedIP != "5.6.7.8" {
-			t.Errorf("Expected IP 5.6.7.8, got %s", capturedIP)
-		}
+		assert.Equal(t, "5.6.7.8", capturedIP)
 	})
 
 	t.Run("X-Forwarded-For takes precedence", func(t *testing.T) {
@@ -317,9 +268,7 @@ func TestRealIP(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedIP != "1.2.3.4" {
-			t.Errorf("Expected IP 1.2.3.4 from X-Forwarded-For, got %s", capturedIP)
-		}
+		assert.Equal(t, "1.2.3.4", capturedIP, "Expected IP from X-Forwarded-For")
 	})
 
 	t.Run("No IP headers", func(t *testing.T) {
@@ -339,9 +288,7 @@ func TestRealIP(t *testing.T) {
 
 		middleware.ServeHTTP(w, req)
 
-		if capturedIP != originalIP {
-			t.Errorf("Expected original IP %s, got %s", originalIP, capturedIP)
-		}
+		assert.Equal(t, originalIP, capturedIP)
 	})
 }
 
@@ -357,9 +304,7 @@ func TestMiddlewareChaining(t *testing.T) {
 		order = append(order, "handler")
 
 		// Check that all middleware modifications are present
-		if GetRequestID(r.Context()) == "" {
-			t.Error("Expected request ID to be in context")
-		}
+		assert.NotEmpty(t, GetRequestID(r.Context()), "Expected request ID to be in context")
 
 		w.WriteHeader(http.StatusOK)
 	})
@@ -378,13 +323,9 @@ func TestMiddlewareChaining(t *testing.T) {
 
 	chain.ServeHTTP(w, req)
 
-	if len(order) != 1 || order[0] != "handler" {
-		t.Error("Expected handler to be called")
-	}
-
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
+	require.Len(t, order, 1)
+	assert.Equal(t, "handler", order[0], "Expected handler to be called")
+	assert.Equal(t, http.StatusOK, w.Code)
 }
 
 func TestMiddlewareWithRouter(t *testing.T) {
@@ -413,15 +354,7 @@ func TestMiddlewareWithRouter(t *testing.T) {
 
 	router.ServeHTTP(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Errorf("Expected status 200, got %d", w.Code)
-	}
-
-	if requestID == "" {
-		t.Error("Expected request ID to be available in handler")
-	}
-
-	if w.Header().Get("X-Request-ID") == "" {
-		t.Error("Expected X-Request-ID header to be set")
-	}
+	assert.Equal(t, http.StatusOK, w.Code)
+	assert.NotEmpty(t, requestID, "Expected request ID to be available in handler")
+	assert.NotEmpty(t, w.Header().Get("X-Request-ID"), "Expected X-Request-ID header to be set")
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"gopkg.in/yaml.v3"
 )
 
@@ -14,17 +16,11 @@ description: A string field`
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 1 || schema.Type[0] != "string" {
-			t.Errorf("Expected type ['string'], got %v", schema.Type)
-		}
-
-		if schema.Description != "A string field" {
-			t.Errorf("Expected description 'A string field', got %s", schema.Description)
-		}
+		assert.Len(t, schema.Type, 1)
+		assert.Equal(t, "string", schema.Type[0])
+		assert.Equal(t, "A string field", schema.Description)
 	})
 
 	t.Run("Type as array (OpenAPI 3.1)", func(t *testing.T) {
@@ -33,17 +29,11 @@ description: A nullable string`
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 2 {
-			t.Errorf("Expected 2 types, got %d", len(schema.Type))
-		}
-
-		if schema.Type[0] != "string" || schema.Type[1] != "null" {
-			t.Errorf("Expected types ['string', 'null'], got %v", schema.Type)
-		}
+		assert.Len(t, schema.Type, 2)
+		assert.Equal(t, "string", schema.Type[0])
+		assert.Equal(t, "null", schema.Type[1])
 	})
 
 	t.Run("Object schema with properties", func(t *testing.T) {
@@ -58,21 +48,12 @@ required:
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
-
-		if len(schema.Properties) != 2 {
-			t.Errorf("Expected 2 properties, got %d", len(schema.Properties))
-		}
-
-		if len(schema.Required) != 1 || schema.Required[0] != "name" {
-			t.Errorf("Expected required ['name'], got %v", schema.Required)
-		}
+		assert.Equal(t, "object", schema.GetSchemaType())
+		assert.Len(t, schema.Properties, 2)
+		assert.Len(t, schema.Required, 1)
+		assert.Equal(t, "name", schema.Required[0])
 	})
 
 	t.Run("Schema with enum", func(t *testing.T) {
@@ -84,13 +65,9 @@ enum:
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Enum) != 3 {
-			t.Errorf("Expected 3 enum values, got %d", len(schema.Enum))
-		}
+		assert.Len(t, schema.Enum, 3)
 	})
 
 	t.Run("Invalid type format", func(t *testing.T) {
@@ -98,9 +75,7 @@ enum:
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err == nil {
-			t.Error("Expected error for invalid type format")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Schema without type", func(t *testing.T) {
@@ -111,14 +86,10 @@ properties:
 
 		var schema Schema
 		err := yaml.Unmarshal([]byte(yamlData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		// Schema without type is valid (inferred from properties)
-		if len(schema.Type) != 0 {
-			t.Errorf("Expected empty type array, got %v", schema.Type)
-		}
+		assert.Empty(t, schema.Type)
 	})
 }
 
@@ -131,13 +102,10 @@ func TestSchemaUnmarshalJSON(t *testing.T) {
 
 		var schema Schema
 		err := json.Unmarshal([]byte(jsonData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 1 || schema.Type[0] != "string" {
-			t.Errorf("Expected type ['string'], got %v", schema.Type)
-		}
+		assert.Len(t, schema.Type, 1)
+		assert.Equal(t, "string", schema.Type[0])
 	})
 
 	t.Run("Type as array (OpenAPI 3.1)", func(t *testing.T) {
@@ -148,17 +116,11 @@ func TestSchemaUnmarshalJSON(t *testing.T) {
 
 		var schema Schema
 		err := json.Unmarshal([]byte(jsonData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 2 {
-			t.Errorf("Expected 2 types, got %d", len(schema.Type))
-		}
-
-		if schema.Type[0] != "string" || schema.Type[1] != "null" {
-			t.Errorf("Expected types ['string', 'null'], got %v", schema.Type)
-		}
+		assert.Len(t, schema.Type, 2)
+		assert.Equal(t, "string", schema.Type[0])
+		assert.Equal(t, "null", schema.Type[1])
 	})
 
 	t.Run("Object schema", func(t *testing.T) {
@@ -178,21 +140,11 @@ func TestSchemaUnmarshalJSON(t *testing.T) {
 
 		var schema Schema
 		err := json.Unmarshal([]byte(jsonData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
-
-		if len(schema.Properties) != 2 {
-			t.Errorf("Expected 2 properties, got %d", len(schema.Properties))
-		}
-
-		if len(schema.Required) != 2 {
-			t.Errorf("Expected 2 required fields, got %d", len(schema.Required))
-		}
+		assert.Equal(t, "object", schema.GetSchemaType())
+		assert.Len(t, schema.Properties, 2)
+		assert.Len(t, schema.Required, 2)
 	})
 
 	t.Run("Array schema", func(t *testing.T) {
@@ -205,18 +157,10 @@ func TestSchemaUnmarshalJSON(t *testing.T) {
 
 		var schema Schema
 		err := json.Unmarshal([]byte(jsonData), &schema)
-		if err != nil {
-			t.Fatalf("Unmarshal failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "array" {
-			t.Errorf("Expected type 'array', got %s", schema.GetSchemaType())
-		}
-
-		// Items should be set
-		if schema.Items == nil {
-			t.Error("Expected items to be set")
-		}
+		assert.Equal(t, "array", schema.GetSchemaType())
+		assert.NotNil(t, schema.Items)
 	})
 
 	t.Run("Invalid type format", func(t *testing.T) {
@@ -226,9 +170,7 @@ func TestSchemaUnmarshalJSON(t *testing.T) {
 
 		var schema Schema
 		err := json.Unmarshal([]byte(jsonData), &schema)
-		if err == nil {
-			t.Error("Expected error for invalid type format")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -238,13 +180,10 @@ func TestHandleTypeField(t *testing.T) {
 		var schema Schema
 
 		err := handleTypeField(data, &schema)
-		if err != nil {
-			t.Fatalf("handleTypeField failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 1 || schema.Type[0] != "string" {
-			t.Errorf("Expected type ['string'], got %v", schema.Type)
-		}
+		assert.Len(t, schema.Type, 1)
+		assert.Equal(t, "string", schema.Type[0])
 	})
 
 	t.Run("Handle array type", func(t *testing.T) {
@@ -252,13 +191,9 @@ func TestHandleTypeField(t *testing.T) {
 		var schema Schema
 
 		err := handleTypeField(data, &schema)
-		if err != nil {
-			t.Fatalf("handleTypeField failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if len(schema.Type) != 2 {
-			t.Errorf("Expected 2 types, got %d", len(schema.Type))
-		}
+		assert.Len(t, schema.Type, 2)
 	})
 
 	t.Run("Handle invalid type", func(t *testing.T) {
@@ -266,9 +201,7 @@ func TestHandleTypeField(t *testing.T) {
 		var schema Schema
 
 		err := handleTypeField(data, &schema)
-		if err == nil {
-			t.Error("Expected error for invalid type")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -278,9 +211,7 @@ func TestSchemaGetSchemaType(t *testing.T) {
 			Type: []string{"string"},
 		}
 
-		if schema.GetSchemaType() != "string" {
-			t.Errorf("Expected 'string', got %s", schema.GetSchemaType())
-		}
+		assert.Equal(t, "string", schema.GetSchemaType())
 	})
 
 	t.Run("Multiple types", func(t *testing.T) {
@@ -289,9 +220,7 @@ func TestSchemaGetSchemaType(t *testing.T) {
 		}
 
 		// Should return the first type
-		if schema.GetSchemaType() != "string" {
-			t.Errorf("Expected 'string', got %s", schema.GetSchemaType())
-		}
+		assert.Equal(t, "string", schema.GetSchemaType())
 	})
 
 	t.Run("No type", func(t *testing.T) {
@@ -299,17 +228,13 @@ func TestSchemaGetSchemaType(t *testing.T) {
 			Type: []string{},
 		}
 
-		if schema.GetSchemaType() != "" {
-			t.Errorf("Expected empty string, got %s", schema.GetSchemaType())
-		}
+		assert.Empty(t, schema.GetSchemaType())
 	})
 
 	t.Run("Nil schema", func(t *testing.T) {
 		var schema *Schema
 
-		if schema.GetSchemaType() != "" {
-			t.Errorf("Expected empty string for nil schema, got %s", schema.GetSchemaType())
-		}
+		assert.Empty(t, schema.GetSchemaType())
 	})
 }
 
@@ -319,9 +244,7 @@ func TestSchemaRefIsRefOnly(t *testing.T) {
 			Ref: "#/components/schemas/Pet",
 		}
 
-		if !ref.IsRefOnly() {
-			t.Error("Expected IsRefOnly to be true")
-		}
+		assert.True(t, ref.IsRefOnly())
 	})
 
 	t.Run("Value with reference", func(t *testing.T) {
@@ -332,9 +255,7 @@ func TestSchemaRefIsRefOnly(t *testing.T) {
 			},
 		}
 
-		if !ref.IsRefOnly() {
-			t.Error("Expected IsRefOnly to be true when Ref is set")
-		}
+		assert.True(t, ref.IsRefOnly(), "Expected IsRefOnly to be true when Ref is set")
 	})
 
 	t.Run("Value only", func(t *testing.T) {
@@ -344,16 +265,12 @@ func TestSchemaRefIsRefOnly(t *testing.T) {
 			},
 		}
 
-		if ref.IsRefOnly() {
-			t.Error("Expected IsRefOnly to be false")
-		}
+		assert.False(t, ref.IsRefOnly())
 	})
 
 	t.Run("Nil reference", func(t *testing.T) {
 		var ref *SchemaRef
 
-		if ref.IsRefOnly() {
-			t.Error("Expected IsRefOnly to be false for nil")
-		}
+		assert.False(t, ref.IsRefOnly())
 	})
 }

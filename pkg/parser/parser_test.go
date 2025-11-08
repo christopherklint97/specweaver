@@ -4,17 +4,15 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNew(t *testing.T) {
 	p := New()
-	if p == nil {
-		t.Fatal("Expected parser to be created")
-	}
-
-	if p.spec != nil {
-		t.Error("Expected spec to be nil for new parser")
-	}
+	assert.NotNil(t, p, "Expected parser to be created")
+	assert.Nil(t, p.spec, "Expected spec to be nil for new parser")
 }
 
 func TestParseFile(t *testing.T) {
@@ -35,35 +33,20 @@ paths:
 
 	t.Run("Parse valid file", func(t *testing.T) {
 		specPath := filepath.Join(tmpDir, "valid.yaml")
-		if err := os.WriteFile(specPath, []byte(validSpec), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(specPath, []byte(validSpec), 0644))
 
 		p := New()
 		err := p.ParseFile(specPath)
-		if err != nil {
-			t.Fatalf("ParseFile failed: %v", err)
-		}
-
-		if p.spec == nil {
-			t.Error("Expected spec to be set after parsing")
-		}
-
-		if p.spec.OpenAPI != "3.1.0" {
-			t.Errorf("Expected OpenAPI version 3.1.0, got %s", p.spec.OpenAPI)
-		}
+		assert.NoError(t, err)
+		assert.NotNil(t, p.spec, "Expected spec to be set after parsing")
+		assert.Equal(t, "3.1.0", p.spec.OpenAPI)
 	})
 
 	t.Run("Parse non-existent file", func(t *testing.T) {
 		p := New()
 		err := p.ParseFile("/nonexistent/file.yaml")
-		if err == nil {
-			t.Error("Expected error for non-existent file")
-		}
-
-		if p.spec != nil {
-			t.Error("Expected spec to remain nil after failed parse")
-		}
+		assert.Error(t, err, "Expected error for non-existent file")
+		assert.Nil(t, p.spec, "Expected spec to remain nil after failed parse")
 	})
 
 	t.Run("Parse invalid spec", func(t *testing.T) {
@@ -73,15 +56,11 @@ info:
   version: 1.0.0
 `
 		specPath := filepath.Join(tmpDir, "invalid.yaml")
-		if err := os.WriteFile(specPath, []byte(invalidSpec), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(specPath, []byte(invalidSpec), 0644))
 
 		p := New()
 		err := p.ParseFile(specPath)
-		if err == nil {
-			t.Error("Expected error for unsupported OpenAPI version")
-		}
+		assert.Error(t, err, "Expected error for unsupported OpenAPI version")
 	})
 
 	t.Run("Parse JSON file", func(t *testing.T) {
@@ -95,19 +74,12 @@ info:
 		}`
 
 		specPath := filepath.Join(tmpDir, "spec.json")
-		if err := os.WriteFile(specPath, []byte(jsonSpec), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(specPath, []byte(jsonSpec), 0644))
 
 		p := New()
 		err := p.ParseFile(specPath)
-		if err != nil {
-			t.Fatalf("ParseFile failed for JSON: %v", err)
-		}
-
-		if p.spec.Info.Title != "JSON API" {
-			t.Errorf("Expected title 'JSON API', got %s", p.spec.Info.Title)
-		}
+		require.NoError(t, err)
+		assert.Equal(t, "JSON API", p.spec.Info.Title)
 	})
 }
 
@@ -115,9 +87,7 @@ func TestGetSpec(t *testing.T) {
 	t.Run("Get spec before parsing", func(t *testing.T) {
 		p := New()
 		spec := p.GetSpec()
-		if spec != nil {
-			t.Error("Expected nil spec before parsing")
-		}
+		assert.Nil(t, spec, "Expected nil spec before parsing")
 	})
 
 	t.Run("Get spec after parsing", func(t *testing.T) {
@@ -130,23 +100,14 @@ info:
   version: 1.0.0
 paths: {}`
 
-		if err := os.WriteFile(specPath, []byte(validSpec), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(specPath, []byte(validSpec), 0644))
 
 		p := New()
-		if err := p.ParseFile(specPath); err != nil {
-			t.Fatalf("ParseFile failed: %v", err)
-		}
+		require.NoError(t, p.ParseFile(specPath))
 
 		spec := p.GetSpec()
-		if spec == nil {
-			t.Fatal("Expected spec to be available after parsing")
-		}
-
-		if spec.Info.Title != "Test API" {
-			t.Errorf("Expected title 'Test API', got %s", spec.Info.Title)
-		}
+		require.NotNil(t, spec, "Expected spec to be available after parsing")
+		assert.Equal(t, "Test API", spec.Info.Title)
 	})
 }
 
@@ -154,9 +115,7 @@ func TestGetVersion(t *testing.T) {
 	t.Run("Get version before parsing", func(t *testing.T) {
 		p := New()
 		version := p.GetVersion()
-		if version != "" {
-			t.Errorf("Expected empty version before parsing, got %s", version)
-		}
+		assert.Empty(t, version, "Expected empty version before parsing")
 	})
 
 	t.Run("Get version after parsing", func(t *testing.T) {
@@ -169,19 +128,13 @@ info:
   version: 1.0.0
 paths: {}`
 
-		if err := os.WriteFile(specPath, []byte(validSpec), 0644); err != nil {
-			t.Fatalf("Failed to create test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(specPath, []byte(validSpec), 0644))
 
 		p := New()
-		if err := p.ParseFile(specPath); err != nil {
-			t.Fatalf("ParseFile failed: %v", err)
-		}
+		require.NoError(t, p.ParseFile(specPath))
 
 		version := p.GetVersion()
-		if version != "3.2.0" {
-			t.Errorf("Expected version '3.2.0', got %s", version)
-		}
+		assert.Equal(t, "3.2.0", version)
 	})
 
 	t.Run("Get version for different OpenAPI versions", func(t *testing.T) {
@@ -197,19 +150,13 @@ info:
   version: 1.0.0
 paths: {}`
 
-			if err := os.WriteFile(specPath, []byte(spec), 0644); err != nil {
-				t.Fatalf("Failed to create test file: %v", err)
-			}
+			require.NoError(t, os.WriteFile(specPath, []byte(spec), 0644))
 
 			p := New()
-			if err := p.ParseFile(specPath); err != nil {
-				t.Fatalf("ParseFile failed for version %s: %v", expectedVersion, err)
-			}
+			require.NoError(t, p.ParseFile(specPath))
 
 			version := p.GetVersion()
-			if version != expectedVersion {
-				t.Errorf("Expected version '%s', got %s", expectedVersion, version)
-			}
+			assert.Equal(t, expectedVersion, version)
 		}
 	})
 }
@@ -267,72 +214,36 @@ components:
           format: email
 `
 
-	if err := os.WriteFile(specPath, []byte(complexSpec), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(specPath, []byte(complexSpec), 0644))
 
 	p := New()
-	if err := p.ParseFile(specPath); err != nil {
-		t.Fatalf("ParseFile failed: %v", err)
-	}
+	require.NoError(t, p.ParseFile(specPath))
 
 	spec := p.GetSpec()
 
 	// Verify document structure
-	if spec.Info.Title != "Complex API" {
-		t.Errorf("Expected title 'Complex API', got %s", spec.Info.Title)
-	}
-
-	if spec.Info.Description != "A complex API with multiple features" {
-		t.Errorf("Unexpected description: %s", spec.Info.Description)
-	}
-
-	if spec.Info.Contact == nil || spec.Info.Contact.Email != "team@example.com" {
-		t.Error("Expected contact email to be set")
-	}
-
-	if len(spec.Servers) != 1 {
-		t.Errorf("Expected 1 server, got %d", len(spec.Servers))
-	}
-
-	if len(spec.Paths) != 1 {
-		t.Errorf("Expected 1 path, got %d", len(spec.Paths))
-	}
+	assert.Equal(t, "Complex API", spec.Info.Title)
+	assert.Equal(t, "A complex API with multiple features", spec.Info.Description)
+	require.NotNil(t, spec.Info.Contact)
+	assert.Equal(t, "team@example.com", spec.Info.Contact.Email)
+	assert.Len(t, spec.Servers, 1)
+	assert.Len(t, spec.Paths, 1)
 
 	// Verify path operation
 	userPath, ok := spec.Paths["/users/{userId}"]
-	if !ok {
-		t.Fatal("Expected /users/{userId} path to exist")
-	}
-
-	if userPath.Get == nil {
-		t.Fatal("Expected GET operation to exist")
-	}
-
-	if userPath.Get.OperationID != "getUser" {
-		t.Errorf("Expected operation ID 'getUser', got %s", userPath.Get.OperationID)
-	}
+	require.True(t, ok, "Expected /users/{userId} path to exist")
+	require.NotNil(t, userPath.Get, "Expected GET operation to exist")
+	assert.Equal(t, "getUser", userPath.Get.OperationID)
 
 	// Verify parameters
-	if len(userPath.Get.Parameters) != 1 {
-		t.Errorf("Expected 1 parameter, got %d", len(userPath.Get.Parameters))
-	}
+	assert.Len(t, userPath.Get.Parameters, 1)
 
 	// Verify components
-	if spec.Components == nil || spec.Components.Schemas == nil {
-		t.Fatal("Expected components.schemas to be set")
-	}
+	require.NotNil(t, spec.Components)
+	require.NotNil(t, spec.Components.Schemas)
 
 	userSchema, ok := spec.Components.Schemas["User"]
-	if !ok {
-		t.Fatal("Expected User schema to exist")
-	}
-
-	if userSchema.Value == nil {
-		t.Fatal("Expected User schema value to be set")
-	}
-
-	if len(userSchema.Value.Properties) != 3 {
-		t.Errorf("Expected 3 properties in User schema, got %d", len(userSchema.Value.Properties))
-	}
+	require.True(t, ok, "Expected User schema to exist")
+	require.NotNil(t, userSchema.Value, "Expected User schema value to be set")
+	assert.Len(t, userSchema.Value.Properties, 3)
 }

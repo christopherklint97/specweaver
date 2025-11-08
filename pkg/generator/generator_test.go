@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/christopherklint97/specweaver/pkg/openapi"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewGenerator(t *testing.T) {
@@ -20,13 +22,8 @@ func TestNewGenerator(t *testing.T) {
 	t.Run("With default config", func(t *testing.T) {
 		gen := NewGenerator(spec, Config{})
 
-		if gen.packageName != "api" {
-			t.Errorf("Expected default package name 'api', got %s", gen.packageName)
-		}
-
-		if gen.outputDir != "./generated" {
-			t.Errorf("Expected default output dir './generated', got %s", gen.outputDir)
-		}
+		assert.Equal(t, "api", gen.packageName, "Expected default package name 'api'")
+		assert.Equal(t, "./generated", gen.outputDir, "Expected default output dir './generated'")
 	})
 
 	t.Run("With custom config", func(t *testing.T) {
@@ -37,13 +34,8 @@ func TestNewGenerator(t *testing.T) {
 
 		gen := NewGenerator(spec, config)
 
-		if gen.packageName != "myapi" {
-			t.Errorf("Expected package name 'myapi', got %s", gen.packageName)
-		}
-
-		if gen.outputDir != "./custom" {
-			t.Errorf("Expected output dir './custom', got %s", gen.outputDir)
-		}
+		assert.Equal(t, "myapi", gen.packageName, "Expected package name 'myapi'")
+		assert.Equal(t, "./custom", gen.outputDir, "Expected output dir './custom'")
 	})
 }
 
@@ -113,48 +105,32 @@ func TestGenerate(t *testing.T) {
 
 	gen := NewGenerator(spec, config)
 	err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Check that output directory was created
-	if _, err := os.Stat(tmpDir); os.IsNotExist(err) {
-		t.Error("Expected output directory to be created")
-	}
+	assert.DirExists(t, tmpDir, "Expected output directory to be created")
 
 	// Check that types.go was created
 	typesPath := filepath.Join(tmpDir, "types.go")
-	if _, err := os.Stat(typesPath); os.IsNotExist(err) {
-		t.Error("Expected types.go to be created")
-	}
+	assert.FileExists(t, typesPath, "Expected types.go to be created")
 
 	// Check that server.go was created
 	serverPath := filepath.Join(tmpDir, "server.go")
-	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
-		t.Error("Expected server.go to be created")
-	}
+	assert.FileExists(t, serverPath, "Expected server.go to be created")
 
 	// Read and verify types.go content
 	typesContent, err := os.ReadFile(typesPath)
-	if err != nil {
-		t.Fatalf("Failed to read types.go: %v", err)
-	}
+	require.NoError(t, err, "Failed to read types.go")
 
 	typesStr := string(typesContent)
-	if len(typesStr) == 0 {
-		t.Error("Expected types.go to have content")
-	}
+	assert.NotEmpty(t, typesStr, "Expected types.go to have content")
 
 	// Read and verify server.go content
 	serverContent, err := os.ReadFile(serverPath)
-	if err != nil {
-		t.Fatalf("Failed to read server.go: %v", err)
-	}
+	require.NoError(t, err, "Failed to read server.go")
 
 	serverStr := string(serverContent)
-	if len(serverStr) == 0 {
-		t.Error("Expected server.go to have content")
-	}
+	assert.NotEmpty(t, serverStr, "Expected server.go to have content")
 }
 
 func TestGenerateTypes(t *testing.T) {
@@ -197,30 +173,22 @@ func TestGenerateTypes(t *testing.T) {
 
 	gen := NewGenerator(spec, config)
 	err := gen.generateTypes()
-	if err != nil {
-		t.Fatalf("generateTypes failed: %v", err)
-	}
+	require.NoError(t, err, "generateTypes should not fail")
 
 	// Check that types.go was created
 	typesPath := filepath.Join(tmpDir, "types.go")
 	content, err := os.ReadFile(typesPath)
-	if err != nil {
-		t.Fatalf("Failed to read types.go: %v", err)
-	}
+	require.NoError(t, err, "Failed to read types.go")
 
 	contentStr := string(content)
 
 	// Verify package declaration
-	if len(contentStr) == 0 {
-		t.Error("Expected types.go to have content")
-	}
+	assert.NotEmpty(t, contentStr, "Expected types.go to have content")
 
 	// Verify the file is valid Go code by checking for package declaration
 	if !contains([]string{"package api"}, "package api") {
 		// Just verify file was created
-		if _, err := os.Stat(typesPath); os.IsNotExist(err) {
-			t.Error("Expected types.go file to exist")
-		}
+		assert.FileExists(t, typesPath, "Expected types.go file to exist")
 	}
 }
 
@@ -254,25 +222,17 @@ func TestGenerateServer(t *testing.T) {
 
 	gen := NewGenerator(spec, config)
 	err := gen.generateServer()
-	if err != nil {
-		t.Fatalf("generateServer failed: %v", err)
-	}
+	require.NoError(t, err, "generateServer should not fail")
 
 	// Check that server.go was created
 	serverPath := filepath.Join(tmpDir, "server.go")
-	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
-		t.Error("Expected server.go to be created")
-	}
+	assert.FileExists(t, serverPath, "Expected server.go to be created")
 
 	// Read content to verify it's not empty
 	content, err := os.ReadFile(serverPath)
-	if err != nil {
-		t.Fatalf("Failed to read server.go: %v", err)
-	}
+	require.NoError(t, err, "Failed to read server.go")
 
-	if len(content) == 0 {
-		t.Error("Expected server.go to have content")
-	}
+	assert.NotEmpty(t, content, "Expected server.go to have content")
 }
 
 func TestGenerateWithComplexSpec(t *testing.T) {
@@ -434,21 +394,14 @@ func TestGenerateWithComplexSpec(t *testing.T) {
 
 	gen := NewGenerator(spec, config)
 	err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail")
 
 	// Verify both files exist
 	typesPath := filepath.Join(tmpDir, "types.go")
 	serverPath := filepath.Join(tmpDir, "server.go")
 
-	if _, err := os.Stat(typesPath); os.IsNotExist(err) {
-		t.Error("Expected types.go to exist")
-	}
-
-	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
-		t.Error("Expected server.go to exist")
-	}
+	assert.FileExists(t, typesPath, "Expected types.go to exist")
+	assert.FileExists(t, serverPath, "Expected server.go to exist")
 }
 
 func TestGenerateWithInvalidOutputDir(t *testing.T) {
@@ -463,19 +416,16 @@ func TestGenerateWithInvalidOutputDir(t *testing.T) {
 
 	// Use an invalid path (try to create inside a file instead of directory)
 	tmpFile := filepath.Join(t.TempDir(), "file.txt")
-	if err := os.WriteFile(tmpFile, []byte("test"), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	err := os.WriteFile(tmpFile, []byte("test"), 0644)
+	require.NoError(t, err, "Failed to create test file")
 
 	config := Config{
 		OutputDir: filepath.Join(tmpFile, "subdir"), // Invalid: trying to create dir inside a file
 	}
 
 	gen := NewGenerator(spec, config)
-	err := gen.Generate()
-	if err == nil {
-		t.Error("Expected error when creating invalid output directory")
-	}
+	err = gen.Generate()
+	assert.Error(t, err, "Expected error when creating invalid output directory")
 }
 
 func TestGenerateEmptySpec(t *testing.T) {
@@ -497,19 +447,12 @@ func TestGenerateEmptySpec(t *testing.T) {
 
 	gen := NewGenerator(spec, config)
 	err := gen.Generate()
-	if err != nil {
-		t.Fatalf("Generate failed for empty spec: %v", err)
-	}
+	require.NoError(t, err, "Generate should not fail for empty spec")
 
 	// Files should still be created even with empty spec
 	typesPath := filepath.Join(tmpDir, "types.go")
 	serverPath := filepath.Join(tmpDir, "server.go")
 
-	if _, err := os.Stat(typesPath); os.IsNotExist(err) {
-		t.Error("Expected types.go to be created for empty spec")
-	}
-
-	if _, err := os.Stat(serverPath); os.IsNotExist(err) {
-		t.Error("Expected server.go to be created for empty spec")
-	}
+	assert.FileExists(t, typesPath, "Expected types.go to be created for empty spec")
+	assert.FileExists(t, serverPath, "Expected server.go to be created for empty spec")
 }

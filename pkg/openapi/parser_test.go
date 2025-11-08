@@ -4,6 +4,9 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoad(t *testing.T) {
@@ -24,46 +27,28 @@ paths:
           description: Success
 `
 
-	if err := os.WriteFile(yamlPath, []byte(validYAML), 0644); err != nil {
-		t.Fatalf("Failed to create test file: %v", err)
-	}
+	require.NoError(t, os.WriteFile(yamlPath, []byte(validYAML), 0644))
 
 	t.Run("Load valid YAML file", func(t *testing.T) {
 		doc, err := Load(yamlPath)
-		if err != nil {
-			t.Fatalf("Load failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if doc.OpenAPI != "3.1.0" {
-			t.Errorf("Expected OpenAPI version 3.1.0, got %s", doc.OpenAPI)
-		}
-
-		if doc.Info.Title != "Test API" {
-			t.Errorf("Expected title 'Test API', got %s", doc.Info.Title)
-		}
-
-		if doc.Info.Version != "1.0.0" {
-			t.Errorf("Expected version '1.0.0', got %s", doc.Info.Version)
-		}
+		assert.Equal(t, "3.1.0", doc.OpenAPI)
+		assert.Equal(t, "Test API", doc.Info.Title)
+		assert.Equal(t, "1.0.0", doc.Info.Version)
 	})
 
 	t.Run("Load non-existent file", func(t *testing.T) {
 		_, err := Load("/nonexistent/file.yaml")
-		if err == nil {
-			t.Error("Expected error for non-existent file, got nil")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Load invalid YAML", func(t *testing.T) {
 		invalidPath := filepath.Join(tmpDir, "invalid.yaml")
-		if err := os.WriteFile(invalidPath, []byte("invalid: yaml: content: ["), 0644); err != nil {
-			t.Fatalf("Failed to create invalid test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(invalidPath, []byte("invalid: yaml: content: ["), 0644))
 
 		_, err := Load(invalidPath)
-		if err == nil {
-			t.Error("Expected error for invalid YAML, got nil")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Load JSON file", func(t *testing.T) {
@@ -77,18 +62,12 @@ paths:
 			"paths": {}
 		}`
 
-		if err := os.WriteFile(jsonPath, []byte(validJSON), 0644); err != nil {
-			t.Fatalf("Failed to create JSON test file: %v", err)
-		}
+		require.NoError(t, os.WriteFile(jsonPath, []byte(validJSON), 0644))
 
 		doc, err := Load(jsonPath)
-		if err != nil {
-			t.Fatalf("Load JSON failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if doc.Info.Title != "JSON API" {
-			t.Errorf("Expected title 'JSON API', got %s", doc.Info.Title)
-		}
+		assert.Equal(t, "JSON API", doc.Info.Title)
 	})
 }
 
@@ -102,13 +81,9 @@ paths: {}
 `)
 
 		doc, err := LoadFromData(data, "test.yaml")
-		if err != nil {
-			t.Fatalf("LoadFromData failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if doc.Info.Title != "Data API" {
-			t.Errorf("Expected title 'Data API', got %s", doc.Info.Title)
-		}
+		assert.Equal(t, "Data API", doc.Info.Title)
 	})
 
 	t.Run("Valid JSON data", func(t *testing.T) {
@@ -119,13 +94,9 @@ paths: {}
 		}`)
 
 		doc, err := LoadFromData(data, "test.json")
-		if err != nil {
-			t.Fatalf("LoadFromData failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if doc.Info.Title != "JSON Data API" {
-			t.Errorf("Expected title 'JSON Data API', got %s", doc.Info.Title)
-		}
+		assert.Equal(t, "JSON Data API", doc.Info.Title)
 	})
 }
 
@@ -141,16 +112,12 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err != nil {
-			t.Errorf("Validation failed for valid document: %v", err)
-		}
+		assert.NoError(t, err)
 	})
 
 	t.Run("Nil document", func(t *testing.T) {
 		err := validateDocument(nil)
-		if err == nil {
-			t.Error("Expected error for nil document")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Missing OpenAPI version", func(t *testing.T) {
@@ -162,9 +129,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for missing OpenAPI version")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Unsupported OpenAPI version", func(t *testing.T) {
@@ -177,9 +142,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for unsupported OpenAPI version")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Missing info", func(t *testing.T) {
@@ -188,9 +151,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for missing info")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Missing info.title", func(t *testing.T) {
@@ -202,9 +163,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for missing info.title")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Missing info.version", func(t *testing.T) {
@@ -216,9 +175,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for missing info.version")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Missing paths and components", func(t *testing.T) {
@@ -231,9 +188,7 @@ func TestValidateDocument(t *testing.T) {
 		}
 
 		err := validateDocument(doc)
-		if err == nil {
-			t.Error("Expected error for missing paths and components")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -271,13 +226,9 @@ func TestResolveSchemaRef(t *testing.T) {
 		}
 
 		schema, err := doc.ResolveSchemaRef(ref)
-		if err != nil {
-			t.Fatalf("ResolveSchemaRef failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "string" {
-			t.Errorf("Expected type 'string', got %s", schema.GetSchemaType())
-		}
+		assert.Equal(t, "string", schema.GetSchemaType())
 	})
 
 	t.Run("Resolve reference", func(t *testing.T) {
@@ -286,20 +237,14 @@ func TestResolveSchemaRef(t *testing.T) {
 		}
 
 		schema, err := doc.ResolveSchemaRef(ref)
-		if err != nil {
-			t.Fatalf("ResolveSchemaRef failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
+		assert.Equal(t, "object", schema.GetSchemaType())
 	})
 
 	t.Run("Resolve nil reference", func(t *testing.T) {
 		_, err := doc.ResolveSchemaRef(nil)
-		if err == nil {
-			t.Error("Expected error for nil reference")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Resolve invalid reference", func(t *testing.T) {
@@ -308,9 +253,7 @@ func TestResolveSchemaRef(t *testing.T) {
 		}
 
 		_, err := doc.ResolveSchemaRef(ref)
-		if err == nil {
-			t.Error("Expected error for invalid reference")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -335,20 +278,14 @@ func TestGetSchemaByName(t *testing.T) {
 
 	t.Run("Get existing schema", func(t *testing.T) {
 		schema, err := doc.GetSchemaByName("Pet")
-		if err != nil {
-			t.Fatalf("GetSchemaByName failed: %v", err)
-		}
+		require.NoError(t, err)
 
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
+		assert.Equal(t, "object", schema.GetSchemaType())
 	})
 
 	t.Run("Get non-existent schema", func(t *testing.T) {
 		_, err := doc.GetSchemaByName("NonExistent")
-		if err == nil {
-			t.Error("Expected error for non-existent schema")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("No components", func(t *testing.T) {
@@ -362,9 +299,7 @@ func TestGetSchemaByName(t *testing.T) {
 		}
 
 		_, err := emptyDoc.GetSchemaByName("Pet")
-		if err == nil {
-			t.Error("Expected error when components is nil")
-		}
+		assert.Error(t, err)
 	})
 }
 
@@ -394,66 +329,42 @@ func TestResolveReference(t *testing.T) {
 
 	t.Run("Resolve schema reference", func(t *testing.T) {
 		obj, err := doc.resolveReference("#/components/schemas/Pet")
-		if err != nil {
-			t.Fatalf("resolveReference failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		schema, ok := obj.(*Schema)
-		if !ok {
-			t.Error("Expected *Schema type")
-		}
-
-		if schema.GetSchemaType() != "object" {
-			t.Errorf("Expected type 'object', got %s", schema.GetSchemaType())
-		}
+		assert.True(t, ok, "Expected *Schema type")
+		assert.Equal(t, "object", schema.GetSchemaType())
 	})
 
 	t.Run("Resolve response reference", func(t *testing.T) {
 		obj, err := doc.resolveReference("#/components/responses/NotFound")
-		if err != nil {
-			t.Fatalf("resolveReference failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		response, ok := obj.(*Response)
-		if !ok {
-			t.Error("Expected *Response type")
-		}
-
-		if response.Description != "Not found" {
-			t.Errorf("Expected description 'Not found', got %s", response.Description)
-		}
+		assert.True(t, ok, "Expected *Response type")
+		assert.Equal(t, "Not found", response.Description)
 	})
 
 	t.Run("External reference not supported", func(t *testing.T) {
 		_, err := doc.resolveReference("./external.yaml#/components/schemas/Pet")
-		if err == nil {
-			t.Error("Expected error for external reference")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Invalid reference format", func(t *testing.T) {
 		_, err := doc.resolveReference("invalid")
-		if err == nil {
-			t.Error("Expected error for invalid reference format")
-		}
+		assert.Error(t, err)
 	})
 
 	t.Run("Cache hit", func(t *testing.T) {
 		// First call - should cache
 		obj1, err := doc.resolveReference("#/components/schemas/Pet")
-		if err != nil {
-			t.Fatalf("First resolveReference failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		// Second call - should hit cache
 		obj2, err := doc.resolveReference("#/components/schemas/Pet")
-		if err != nil {
-			t.Fatalf("Second resolveReference failed: %v", err)
-		}
+		require.NoError(t, err)
 
 		// Should be the same object
-		if obj1 != obj2 {
-			t.Error("Expected cached object to be the same")
-		}
+		assert.Same(t, obj1, obj2, "Expected cached object to be the same")
 	})
 }
