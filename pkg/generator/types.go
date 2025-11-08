@@ -51,6 +51,12 @@ func (g *TypeGenerator) generateType(sb *strings.Builder, name string, schema *o
 	}
 	g.generated[name] = true
 
+	// If schema is nil, this is a reference-only schema (alias)
+	// These don't need type generation - the reference will be resolved when used
+	if schema == nil {
+		return nil
+	}
+
 	typeName := toGoTypeName(name)
 
 	// Add description as comment if available
