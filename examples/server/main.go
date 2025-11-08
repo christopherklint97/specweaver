@@ -1,22 +1,20 @@
 package main
 
 import (
-	"fmt"
+	"context"
 	"log"
 	"net/http"
-	"strconv"
 	"sync"
 	"time"
 
 	"github.com/christopherklint97/specweaver/examples/server/api"
-	"github.com/christopherklint97/specweaver/pkg/router"
 )
 
-// PetStoreServer implements the generated ServerInterface
+// PetStoreServer implements the generated Server interface
 type PetStoreServer struct {
-	mu      sync.RWMutex
-	pets    map[int64]api.Pet
-	nextID  int64
+	mu     sync.RWMutex
+	pets   map[int64]api.Pet
+	nextID int64
 }
 
 // NewPetStoreServer creates a new pet store server instance
@@ -27,28 +25,23 @@ func NewPetStoreServer() *PetStoreServer {
 	}
 }
 
-// ListPets implements the GET /pets endpoint
-func (s *PetStoreServer) ListPets(w http.ResponseWriter, r *http.Request) {
+// ListPets implements the ListPets handler
+func (s *PetStoreServer) ListPets(ctx context.Context, req api.ListPetsRequest) (api.ListPetsResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	// Get query parameters
-	limitStr := r.URL.Query().Get("limit")
-	tag := r.URL.Query().Get("tag")
-
-	limit := 20 // default
-	if limitStr != "" {
-		if l, err := strconv.Atoi(limitStr); err == nil && l > 0 && l <= 100 {
-			limit = l
-		}
+	// Default limit
+	limit := int32(20)
+	if req.Limit != nil {
+		limit = *req.Limit
 	}
 
 	// Collect pets
 	pets := make([]api.Pet, 0)
-	count := 0
+	count := int32(0)
 	for _, pet := range s.pets {
 		// Filter by tag if provided
-		if tag != "" && pet.Tag != tag {
+		if req.Tag != nil && pet.Tag != *req.Tag {
 			continue
 		}
 
@@ -59,21 +52,14 @@ func (s *PetStoreServer) ListPets(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	api.WriteJSON(w, http.StatusOK, pets)
+	return api.ListPets200Response{Body: pets}, nil
 }
 
-// CreatePet implements the POST /pets endpoint
-func (s *PetStoreServer) CreatePet(w http.ResponseWriter, r *http.Request) {
-	var newPet api.NewPet
-	if err := api.ReadJSON(r, &newPet); err != nil {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
-		return
-	}
-
+// CreatePet implements the CreatePet handler
+func (s *PetStoreServer) CreatePet(ctx context.Context, req api.CreatePetRequest) (api.CreatePetResponse, error) {
 	// Validate required fields
-	if newPet.Name == "" {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("name is required"))
-		return
+	if req.Body.Name == "" {
+		return nil, api.NewHTTPError(http.StatusBadRequest, "name is required")
 	}
 
 	s.mu.Lock()
@@ -82,95 +68,80 @@ func (s *PetStoreServer) CreatePet(w http.ResponseWriter, r *http.Request) {
 	// Create new pet
 	pet := api.Pet{
 		Id:        s.nextID,
-		Name:      newPet.Name,
-		Tag:       newPet.Tag,
-		Status:    newPet.Status,
-		BirthDate: newPet.BirthDate,
-		Owner:     newPet.Owner,
+		Name:      req.Body.Name,
+		Tag:       req.Body.Tag,
+		Status:    req.Body.Status,
+		BirthDate: req.Body.BirthDate,
+		Owner:     req.Body.Owner,
 	}
 
 	s.pets[s.nextID] = pet
 	s.nextID++
 
-	api.WriteJSON(w, http.StatusCreated, pet)
+	return api.CreatePet201Response{Body: pet}, nil
 }
 
-// GetPetById implements the GET /pets/{petId} endpoint
-func (s *PetStoreServer) GetPetById(w http.ResponseWriter, r *http.Request) {
-	petIDStr := router.URLParam(r, "petId")
-	petID, err := strconv.ParseInt(petIDStr, 10, 64)
-	if err != nil {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))
-		return
-	}
-
+// GetPetById implements the GetPetById handler
+func (s *PetStoreServer) GetPetById(ctx context.Context, req api.GetPetByIdRequest) (api.GetPetByIdResponse, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	pet, exists := s.pets[petID]
+	pet, exists := s.pets[req.PetId]
 	if !exists {
-		api.WriteError(w, http.StatusNotFound, fmt.Errorf("pet not found"))
-		return
+		return api.GetPetById404Response{
+			Body: api.Error{
+				Error:   "Not Found",
+				Message: "pet not found",
+			},
+		}, nil
 	}
 
-	api.WriteJSON(w, http.StatusOK, pet)
+	return api.GetPetById200Response{Body: pet}, nil
 }
 
-// UpdatePet implements the PUT /pets/{petId} endpoint
-func (s *PetStoreServer) UpdatePet(w http.ResponseWriter, r *http.Request) {
-	petIDStr := router.URLParam(r, "petId")
-	petID, err := strconv.ParseInt(petIDStr, 10, 64)
-	if err != nil {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))
-		return
-	}
-
-	var updatePet api.NewPet
-	if err := api.ReadJSON(r, &updatePet); err != nil {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid request body: %w", err))
-		return
-	}
-
+// UpdatePet implements the UpdatePet handler
+func (s *PetStoreServer) UpdatePet(ctx context.Context, req api.UpdatePetRequest) (api.UpdatePetResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	pet, exists := s.pets[petID]
+	pet, exists := s.pets[req.PetId]
 	if !exists {
-		api.WriteError(w, http.StatusNotFound, fmt.Errorf("pet not found"))
-		return
+		return api.UpdatePet404Response{
+			Body: api.Error{
+				Error:   "Not Found",
+				Message: "pet not found",
+			},
+		}, nil
 	}
 
 	// Update fields
-	pet.Name = updatePet.Name
-	pet.Tag = updatePet.Tag
-	pet.Status = updatePet.Status
-	pet.BirthDate = updatePet.BirthDate
-	pet.Owner = updatePet.Owner
+	pet.Name = req.Body.Name
+	pet.Tag = req.Body.Tag
+	pet.Status = req.Body.Status
+	pet.BirthDate = req.Body.BirthDate
+	pet.Owner = req.Body.Owner
 
-	s.pets[petID] = pet
+	s.pets[req.PetId] = pet
 
-	api.WriteJSON(w, http.StatusOK, pet)
+	return api.UpdatePet200Response{Body: pet}, nil
 }
 
-// DeletePet implements the DELETE /pets/{petId} endpoint
-func (s *PetStoreServer) DeletePet(w http.ResponseWriter, r *http.Request) {
-	petIDStr := router.URLParam(r, "petId")
-	petID, err := strconv.ParseInt(petIDStr, 10, 64)
-	if err != nil {
-		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))
-		return
-	}
-
+// DeletePet implements the DeletePet handler
+func (s *PetStoreServer) DeletePet(ctx context.Context, req api.DeletePetRequest) (api.DeletePetResponse, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if _, exists := s.pets[petID]; !exists {
-		api.WriteError(w, http.StatusNotFound, fmt.Errorf("pet not found"))
-		return
+	if _, exists := s.pets[req.PetId]; !exists {
+		return api.DeletePet404Response{
+			Body: api.Error{
+				Error:   "Not Found",
+				Message: "pet not found",
+			},
+		}, nil
 	}
 
-	delete(s.pets, petID)
-	w.WriteHeader(http.StatusNoContent)
+	delete(s.pets, req.PetId)
+	return api.DeletePet204Response{}, nil
 }
 
 func main() {

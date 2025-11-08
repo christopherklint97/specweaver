@@ -88,13 +88,32 @@ specweaver/
   - `RealIP`: Real IP extraction from headers
 
 #### 4. Server Generator (`pkg/generator/server.go`)
-- **Purpose**: Generate HTTP server code
+- **Purpose**: Generate HTTP server code with clean, testable patterns
 - **Router**: Uses custom `pkg/router` (zero dependencies)
+- **Handler Pattern**: `func(ctx context.Context, req) (res, error)`
+  - Request structs contain path params, query params, headers, and body
+  - Response types map to OpenAPI response definitions
+  - Smart error handling with HTTPError for custom status codes
 - **Generated Components**:
-  - `Server`: Interface with all handler methods
-  - `NewRouter()`: Function to create configured router
+  - **Request Types**: One per operation (e.g., `ListPetsRequest`)
+    - Path parameters as required fields
+    - Query parameters as optional pointer fields
+    - Request body when applicable
+  - **Response Types**: Interface with concrete types per status code
+    - Interface (e.g., `ListPetsResponse`)
+    - Concrete types (e.g., `ListPets200Response`, `ListPets500Response`)
+    - Each implements `StatusCode() int` method
+  - **HTTPError**: Custom error type with status code
+    - `NewHTTPError(code, message)`: Create error with specific status
+    - `NewHTTPErrorf(code, format, args...)`: Create with formatted message
+    - `WrapHTTPError(code, err, message)`: Wrap existing error
+    - Errors default to 500 unless HTTPError is used
+  - **Server Interface**: Clean business logic methods
+  - **ServerWrapper**: HTTP adapter that bridges to handler methods
+  - **NewRouter()**: Function to create configured router
   - Helper functions:
     - `WriteJSON()`: Write JSON responses
+    - `WriteResponse()`: Write typed response (handles status codes)
     - `WriteError()`: Write error responses
     - `ReadJSON()`: Parse JSON request bodies
 - **Middleware**: Includes logging, recovery, request ID, and real IP
@@ -161,18 +180,58 @@ The generator uses a custom OpenAPI parser that supports all versions:
 ./specweaver -spec examples/petstore.yaml -output ./generated
 ```
 
-### 2. Implement the Interface
+### 2. Implement the Server Interface
+
+The generated code uses a clean, testable pattern with `context.Context`, request structs, and response types:
 
 ```go
 type MyServer struct {
     // Your state here
 }
 
-func (s *MyServer) ListPets(w http.ResponseWriter, r *http.Request) {
-    // Implementation
+// Implement handlers with clean signature
+func (s *MyServer) ListPets(ctx context.Context, req api.ListPetsRequest) (api.ListPetsResponse, error) {
+    // Access query parameters
+    limit := 20
+    if req.Limit != nil {
+        limit = int(*req.Limit)
+    }
+
+    // Business logic here
+    pets := []api.Pet{...}
+
+    // Return typed response
+    return api.ListPets200Response{Body: pets}, nil
 }
 
-// Implement other methods...
+func (s *MyServer) CreatePet(ctx context.Context, req api.CreatePetRequest) (api.CreatePetResponse, error) {
+    // Validation
+    if req.Body.Name == "" {
+        // Return custom error with status code
+        return nil, api.NewHTTPError(http.StatusBadRequest, "name is required")
+    }
+
+    // Business logic
+    pet := createPet(req.Body)
+
+    // Return 201 Created
+    return api.CreatePet201Response{Body: pet}, nil
+}
+
+func (s *MyServer) GetPetById(ctx context.Context, req api.GetPetByIdRequest) (api.GetPetByIdResponse, error) {
+    pet, exists := s.findPet(req.PetId)
+    if !exists {
+        // Return 404 response (not an error!)
+        return api.GetPetById404Response{
+            Body: api.Error{
+                Error:   "Not Found",
+                Message: "pet not found",
+            },
+        }, nil
+    }
+
+    return api.GetPetById200Response{Body: pet}, nil
+}
 ```
 
 ### 3. Start the Server
@@ -182,6 +241,14 @@ server := &MyServer{}
 router := api.NewRouter(server)
 http.ListenAndServe(":8080", router)
 ```
+
+### Benefits of the New Pattern
+
+1. **Testability**: No HTTP dependencies in business logic
+2. **Type Safety**: Compile-time checks for all parameters and responses
+3. **Smart Errors**: HTTPError provides custom status codes, defaults to 500
+4. **Clean Separation**: HTTP adapter layer (ServerWrapper) handles parsing/serialization
+5. **Context Support**: Pass deadlines, cancellation, and request-scoped values
 
 See `examples/server/main.go` for a complete implementation.
 
@@ -254,6 +321,51 @@ Generated code requires:
    - Zero external dependencies
    - Full middleware support
    - Path parameter routing
+
+### Server Method Pattern Refactoring (2025-11-08)
+
+**Major architectural improvement** to the server interface design:
+
+#### Changes Made:
+
+1. **New Handler Signature**:
+   - **Before**: `func(w http.ResponseWriter, r *http.Request)`
+   - **After**: `func(ctx context.Context, req XRequest) (XResponse, error)`
+
+2. **Request Structs**: Generated for each operation
+   - Contains path parameters (required fields)
+   - Contains query parameters (optional pointer fields)
+   - Contains request body when applicable
+   - Example: `ListPetsRequest`, `CreatePetRequest`
+
+3. **Response Types**: Interface-based with concrete implementations
+   - Response interface per operation (e.g., `ListPetsResponse`)
+   - Concrete types for each status code (e.g., `ListPets200Response`, `ListPets500Response`)
+   - Each concrete type implements `StatusCode() int` method
+   - Allows type-safe response handling
+
+4. **HTTPError Type**: Smart error handling
+   - `NewHTTPError(code, message)`: Create error with specific HTTP status code
+   - `NewHTTPErrorf(code, format, args...)`: Create with formatted message
+   - `WrapHTTPError(code, err, message)`: Wrap existing error with status code
+   - Default behavior: errors return 500 unless HTTPError is used
+   - Error handling in ServerWrapper checks for HTTPError type
+
+5. **ServerWrapper**: HTTP adapter layer
+   - Bridges HTTP requests to clean handler methods
+   - Parses path parameters, query parameters, and request body
+   - Calls handler with typed request struct
+   - Handles response serialization based on type
+   - Manages error handling (HTTPError vs standard errors)
+
+#### Benefits:
+
+- **Testability**: Business logic has no HTTP dependencies
+- **Type Safety**: Compile-time checks for parameters and responses
+- **Cleaner Code**: Separation of HTTP concerns from business logic
+- **Better Errors**: Explicit control over HTTP status codes
+- **Context Support**: Native support for deadlines, cancellation, request-scoped values
+- **OpenAPI Alignment**: Response types directly map to spec definitions
 
 ## Future Enhancements (Potential)
 
