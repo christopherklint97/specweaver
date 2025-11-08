@@ -13,7 +13,7 @@ SpecWeaver automatically generates type-safe Go code from OpenAPI specifications
 - 📝 **Documentation Preserved** - OpenAPI descriptions become Go comments
 - 🔄 **Schema References** - Properly resolves `$ref` to generate correct types
 - 🎨 **Idiomatic Go** - Follows Go conventions and best practices (uses `any` instead of `interface{}`)
-- ⚡ **Fast & Lightweight** - Uses chi router for minimal overhead
+- ⚡ **Zero Dependencies** - Custom lightweight router, no external dependencies
 - 📄 **Format Support** - Works with both YAML and JSON specifications
 
 ## Installation
@@ -203,6 +203,7 @@ specweaver/
 ├── pkg/
 │   ├── openapi/        # Custom OpenAPI parser (3.0-3.2 support)
 │   ├── parser/         # Parser coordinator
+│   ├── router/         # Custom lightweight HTTP router
 │   └── generator/      # Code generators
 ├── examples/           # Example specs and implementations
 └── generated/          # Default output directory
@@ -213,9 +214,10 @@ specweaver/
 ### Build Dependencies
 - [gopkg.in/yaml.v3](https://gopkg.in/yaml.v3) - YAML parsing
 - **No external OpenAPI library dependencies** - Custom implementation for maximum control
+- **No external routing dependencies** - Custom lightweight router
 
 ### Generated Code Dependencies
-- [chi](https://github.com/go-chi/chi) - Lightweight HTTP router (used in generated server code)
+- **Zero external dependencies** - All generated code uses only Go standard library and the custom router from this project
 
 ## Development
 
@@ -227,7 +229,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- Uses [chi router](https://github.com/go-chi/chi) for clean, fast routing in generated code
 - Uses [gopkg.in/yaml.v3](https://gopkg.in/yaml.v3) for YAML parsing
 - Custom OpenAPI 3.x parser supporting versions 3.0 through 3.2
+- Custom lightweight HTTP router with middleware support
 - Inspired by the OpenAPI Generator project and the Go community's best practices

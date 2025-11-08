@@ -30,8 +30,7 @@ func (g *ServerGenerator) Generate() (string, error) {
 	sb.WriteString("\t\"net/http\"\n")
 	sb.WriteString("\t\"io\"\n")
 	sb.WriteString("\n")
-	sb.WriteString("\t\"github.com/go-chi/chi/v5\"\n")
-	sb.WriteString("\t\"github.com/go-chi/chi/v5/middleware\"\n")
+	sb.WriteString("\t\"github.com/christopherklint97/specweaver/pkg/router\"\n")
 	sb.WriteString(")\n\n")
 
 	// Generate the main server interface
@@ -100,15 +99,15 @@ func (g *ServerGenerator) generateHandlerWrapper(sb *strings.Builder) {
 
 // generateRouter generates the router setup function
 func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
-	sb.WriteString("// NewRouter creates a new chi router with all routes configured\n")
-	sb.WriteString("func NewRouter(si ServerInterface) *chi.Mux {\n")
-	sb.WriteString("\tr := chi.NewRouter()\n")
+	sb.WriteString("// NewRouter creates a new router with all routes configured\n")
+	sb.WriteString("func NewRouter(si ServerInterface) *router.Mux {\n")
+	sb.WriteString("\tr := router.NewRouter()\n")
 	sb.WriteString("\n")
 	sb.WriteString("\t// Middleware\n")
-	sb.WriteString("\tr.Use(middleware.Logger)\n")
-	sb.WriteString("\tr.Use(middleware.Recoverer)\n")
-	sb.WriteString("\tr.Use(middleware.RequestID)\n")
-	sb.WriteString("\tr.Use(middleware.RealIP)\n")
+	sb.WriteString("\tr.Use(router.Logger)\n")
+	sb.WriteString("\tr.Use(router.Recoverer)\n")
+	sb.WriteString("\tr.Use(router.RequestID)\n")
+	sb.WriteString("\tr.Use(router.RealIP)\n")
 	sb.WriteString("\n")
 
 	sb.WriteString("\twrapper := &ServerInterfaceWrapper{Handler: si}\n")
@@ -132,10 +131,9 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 				}
 
 				handlerName := generateHandlerName(method, path, op.OperationID)
-				methodFunc := strings.Title(strings.ToLower(method))
 
 				sb.WriteString(fmt.Sprintf("\tr.%s(\"%s\", wrapper.Handler.%s)\n",
-					methodFunc, chiPath, handlerName))
+					getRouterMethodName(method), chiPath, handlerName))
 			}
 		}
 	}
@@ -203,8 +201,30 @@ func generateHandlerName(method, path, operationID string) string {
 	return toPascalCase(name)
 }
 
-// convertToChiPath converts OpenAPI path to chi router path format
+// convertToChiPath converts OpenAPI path to router path format
 func convertToChiPath(path string) string {
-	// Convert {param} to {param} (chi uses same format)
+	// Both OpenAPI and our router use {param} format
 	return path
+}
+
+// getRouterMethodName returns the router method name for an HTTP method
+func getRouterMethodName(method string) string {
+	switch method {
+	case http.MethodGet:
+		return "Get"
+	case http.MethodPost:
+		return "Post"
+	case http.MethodPut:
+		return "Put"
+	case http.MethodPatch:
+		return "Patch"
+	case http.MethodDelete:
+		return "Delete"
+	case http.MethodOptions:
+		return "Options"
+	case http.MethodHead:
+		return "Head"
+	default:
+		return "Get"
+	}
 }

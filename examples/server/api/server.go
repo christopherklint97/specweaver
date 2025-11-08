@@ -5,8 +5,7 @@ import (
 	"net/http"
 	"io"
 
-	"github.com/go-chi/chi/v5"
-	"github.com/go-chi/chi/v5/middleware"
+	"github.com/christopherklint97/specweaver/pkg/router"
 )
 
 // ServerInterface represents all server handlers
@@ -28,15 +27,15 @@ type ServerInterfaceWrapper struct {
 	Handler ServerInterface
 }
 
-// NewRouter creates a new chi router with all routes configured
-func NewRouter(si ServerInterface) *chi.Mux {
-	r := chi.NewRouter()
+// NewRouter creates a new router with all routes configured
+func NewRouter(si ServerInterface) *router.Mux {
+	r := router.NewRouter()
 
 	// Middleware
-	r.Use(middleware.Logger)
-	r.Use(middleware.Recoverer)
-	r.Use(middleware.RequestID)
-	r.Use(middleware.RealIP)
+	r.Use(router.Logger)
+	r.Use(router.Recoverer)
+	r.Use(router.RequestID)
+	r.Use(router.RealIP)
 
 	wrapper := &ServerInterfaceWrapper{Handler: si}
 

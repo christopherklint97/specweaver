@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"github.com/christopherklint97/specweaver/examples/server/api"
-	"github.com/go-chi/chi/v5"
+	"github.com/christopherklint97/specweaver/pkg/router"
 )
 
 // PetStoreServer implements the generated ServerInterface
@@ -97,7 +97,7 @@ func (s *PetStoreServer) CreatePet(w http.ResponseWriter, r *http.Request) {
 
 // GetPetById implements the GET /pets/{petId} endpoint
 func (s *PetStoreServer) GetPetById(w http.ResponseWriter, r *http.Request) {
-	petIDStr := chi.URLParam(r, "petId")
+	petIDStr := router.URLParam(r, "petId")
 	petID, err := strconv.ParseInt(petIDStr, 10, 64)
 	if err != nil {
 		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))
@@ -118,7 +118,7 @@ func (s *PetStoreServer) GetPetById(w http.ResponseWriter, r *http.Request) {
 
 // UpdatePet implements the PUT /pets/{petId} endpoint
 func (s *PetStoreServer) UpdatePet(w http.ResponseWriter, r *http.Request) {
-	petIDStr := chi.URLParam(r, "petId")
+	petIDStr := router.URLParam(r, "petId")
 	petID, err := strconv.ParseInt(petIDStr, 10, 64)
 	if err != nil {
 		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))
@@ -154,7 +154,7 @@ func (s *PetStoreServer) UpdatePet(w http.ResponseWriter, r *http.Request) {
 
 // DeletePet implements the DELETE /pets/{petId} endpoint
 func (s *PetStoreServer) DeletePet(w http.ResponseWriter, r *http.Request) {
-	petIDStr := chi.URLParam(r, "petId")
+	petIDStr := router.URLParam(r, "petId")
 	petID, err := strconv.ParseInt(petIDStr, 10, 64)
 	if err != nil {
 		api.WriteError(w, http.StatusBadRequest, fmt.Errorf("invalid pet ID"))

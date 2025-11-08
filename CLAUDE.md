@@ -19,8 +19,15 @@ specweaver/
 │   └── specweaver/          # CLI entry point
 │       └── main.go          # Command-line interface
 ├── pkg/
-│   ├── parser/              # OpenAPI parser
-│   │   └── parser.go        # Loads and validates OpenAPI specs
+│   ├── openapi/             # Custom OpenAPI parser
+│   │   ├── spec.go          # OpenAPI data structures
+│   │   ├── parser.go        # YAML/JSON parsing and validation
+│   │   └── unmarshal.go     # Custom unmarshaling for type compatibility
+│   ├── parser/              # Parser coordinator
+│   │   └── parser.go        # High-level parser interface
+│   ├── router/              # Custom HTTP router
+│   │   ├── router.go        # Router implementation
+│   │   └── middleware.go    # Middleware (Logger, Recoverer, etc.)
 │   ├── generator/           # Code generators
 │   │   ├── generator.go     # Main generator coordinator
 │   │   ├── types.go         # Type/struct generation
@@ -66,9 +73,23 @@ specweaver/
 - Handles acronyms and compound words properly
 - Example: `pet-status` → `PetStatus`, `birthDate` → `BirthDate`
 
-#### 3. Server Generator (`pkg/generator/server.go`)
+#### 3. Router (`pkg/router/`)
+- **Purpose**: Custom lightweight HTTP router
+- **Features**:
+  - HTTP method routing (GET, POST, PUT, DELETE, PATCH, etc.)
+  - Path parameter support (`/pets/{id}`)
+  - Middleware support
+  - Zero external dependencies
+  - Compatible interface for easy migration
+- **Middleware**:
+  - `Logger`: Request logging
+  - `Recoverer`: Panic recovery
+  - `RequestID`: Request ID generation
+  - `RealIP`: Real IP extraction from headers
+
+#### 4. Server Generator (`pkg/generator/server.go`)
 - **Purpose**: Generate HTTP server code
-- **Router**: Uses `github.com/go-chi/chi/v5` (lightweight, idiomatic)
+- **Router**: Uses custom `pkg/router` (zero dependencies)
 - **Generated Components**:
   - `ServerInterface`: Interface with all handler methods
   - `NewRouter()`: Function to create configured router
@@ -78,14 +99,14 @@ specweaver/
     - `ReadJSON()`: Parse JSON request bodies
 - **Middleware**: Includes logging, recovery, request ID, and real IP
 
-#### 4. Main Generator (`pkg/generator/generator.go`)
+#### 5. Main Generator (`pkg/generator/generator.go`)
 - **Purpose**: Coordinate the generation process
 - **Responsibilities**:
   - Create output directory
   - Orchestrate type and server generation
   - Write generated code to files
 
-#### 5. CLI (`cmd/specweaver/main.go`)
+#### 6. CLI (`cmd/specweaver/main.go`)
 - **Flags**:
   - `-spec`: Path to OpenAPI spec file (required)
   - `-output`: Output directory (default: `./generated`)
@@ -169,6 +190,7 @@ See `examples/server/main.go` for a complete implementation.
 ### Runtime Dependencies
 - `gopkg.in/yaml.v3` - YAML parsing
 - No external OpenAPI library dependencies (custom implementation)
+- No external routing dependencies (custom router)
 
 ### Generated Code Dependencies
 Generated code requires:
@@ -176,7 +198,7 @@ Generated code requires:
 - `net/http` - HTTP server
 - `io` - Request body reading
 - `time` - DateTime handling
-- `github.com/go-chi/chi/v5` - HTTP Router
+- `github.com/christopherklint97/specweaver/pkg/router` - Custom HTTP router (no external dependencies)
 
 ## Development History
 
@@ -228,6 +250,10 @@ Generated code requires:
 4. **Reference Resolution**: Proper handling of `$ref` to generate correct type names instead of `map[string]any`
 5. **Code Quality**: Added comprehensive comments and documentation
 6. **Modern Go**: Using `any` instead of `interface{}` throughout
+7. **Custom Router**: Replaced chi router with lightweight custom implementation
+   - Zero external dependencies
+   - Full middleware support
+   - Path parameter routing
 
 ## Future Enhancements (Potential)
 
