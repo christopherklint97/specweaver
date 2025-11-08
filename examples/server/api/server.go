@@ -85,14 +85,6 @@ type ListPetsResponse interface {
 	StatusCode() int
 }
 
-// ListPets200Response represents a 200 response
-type ListPets200Response struct {
-	Body []Pet `json:"body"`
-}
-
-func (r ListPets200Response) isListPetsResponse() {}
-func (r ListPets200Response) StatusCode() int { return 200 }
-
 // ListPets500Response represents a 500 response
 type ListPets500Response struct {
 	Body Error `json:"body"`
@@ -100,6 +92,14 @@ type ListPets500Response struct {
 
 func (r ListPets500Response) isListPetsResponse() {}
 func (r ListPets500Response) StatusCode() int { return 500 }
+
+// ListPets200Response represents a 200 response
+type ListPets200Response struct {
+	Body []Pet `json:"body"`
+}
+
+func (r ListPets200Response) isListPetsResponse() {}
+func (r ListPets200Response) StatusCode() int { return 200 }
 
 // CreatePetResponse represents possible responses for CreatePet
 type CreatePetResponse interface {
@@ -173,6 +173,13 @@ type DeletePetResponse interface {
 	StatusCode() int
 }
 
+// DeletePet204Response represents a 204 response
+type DeletePet204Response struct {
+}
+
+func (r DeletePet204Response) isDeletePetResponse() {}
+func (r DeletePet204Response) StatusCode() int { return 204 }
+
 // DeletePet404Response represents a 404 response
 type DeletePet404Response struct {
 	Body Error `json:"body"`
@@ -181,25 +188,18 @@ type DeletePet404Response struct {
 func (r DeletePet404Response) isDeletePetResponse() {}
 func (r DeletePet404Response) StatusCode() int { return 404 }
 
-// DeletePet204Response represents a 204 response
-type DeletePet204Response struct {
-}
-
-func (r DeletePet204Response) isDeletePetResponse() {}
-func (r DeletePet204Response) StatusCode() int { return 204 }
-
 // Server represents all server handlers
 type Server interface {
-	// ListPets List all pets
-	ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
-	// CreatePet Create a pet
-	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
+	// DeletePet Delete a pet
+	DeletePet(ctx context.Context, req DeletePetRequest) (DeletePetResponse, error)
 	// GetPetById Get a pet by ID
 	GetPetById(ctx context.Context, req GetPetByIdRequest) (GetPetByIdResponse, error)
 	// UpdatePet Update a pet
 	UpdatePet(ctx context.Context, req UpdatePetRequest) (UpdatePetResponse, error)
-	// DeletePet Delete a pet
-	DeletePet(ctx context.Context, req DeletePetRequest) (DeletePetResponse, error)
+	// CreatePet Create a pet
+	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
+	// ListPets List all pets
+	ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
 }
 
 // ServerWrapper wraps the Server with HTTP handler logic
@@ -367,9 +367,9 @@ func NewRouter(si Server) *router.Mux {
 
 	r.Get("/pets", wrapper.handleListPets)
 	r.Post("/pets", wrapper.handleCreatePet)
-	r.Delete("/pets/{petId}", wrapper.handleDeletePet)
 	r.Get("/pets/{petId}", wrapper.handleGetPetById)
 	r.Put("/pets/{petId}", wrapper.handleUpdatePet)
+	r.Delete("/pets/{petId}", wrapper.handleDeletePet)
 
 	return r
 }

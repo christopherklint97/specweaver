@@ -227,8 +227,17 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 						continue
 					}
 
+					// Skip "default" responses - these should be handled by error mechanism
+					if statusCode == "default" {
+						continue
+					}
+
 					// Parse status code
 					statusCodeInt := parseStatusCode(statusCode)
+					if statusCodeInt == 0 {
+						// Skip invalid status codes
+						continue
+					}
 					concreteTypeName := fmt.Sprintf("%s%dResponse", handlerName, statusCodeInt)
 
 					sb.WriteString(fmt.Sprintf("// %s represents a %d response\n", concreteTypeName, statusCodeInt))
@@ -704,13 +713,11 @@ func (g *ServerGenerator) resolveSchemaTypeFromValue(schema *openapi.Schema) str
 }
 
 // parseStatusCode parses a status code string to int
+// Returns 0 for "default" or invalid codes, which should be filtered out by the caller
 func parseStatusCode(code string) int {
-	if code == "default" {
-		return 0
-	}
 	statusCode, err := strconv.Atoi(code)
 	if err != nil {
-		return 0
+		return 0 // Invalid code (including "default")
 	}
 	return statusCode
 }
