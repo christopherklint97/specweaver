@@ -91,7 +91,7 @@ specweaver/
 - **Purpose**: Generate HTTP server code
 - **Router**: Uses custom `pkg/router` (zero dependencies)
 - **Generated Components**:
-  - `ServerInterface`: Interface with all handler methods
+  - `Server`: Interface with all handler methods
   - `NewRouter()`: Function to create configured router
   - Helper functions:
     - `WriteJSON()`: Write JSON responses
