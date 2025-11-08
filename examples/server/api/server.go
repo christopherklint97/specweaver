@@ -8,8 +8,8 @@ import (
 	"github.com/christopherklint97/specweaver/pkg/router"
 )
 
-// ServerInterface represents all server handlers
-type ServerInterface interface {
+// Server represents all server handlers
+type Server interface {
 	// ListPets List all pets
 	ListPets(w http.ResponseWriter, r *http.Request)
 	// CreatePet Create a pet
@@ -22,13 +22,13 @@ type ServerInterface interface {
 	GetPetById(w http.ResponseWriter, r *http.Request)
 }
 
-// ServerInterfaceWrapper wraps the ServerInterface with HTTP handler logic
-type ServerInterfaceWrapper struct {
-	Handler ServerInterface
+// ServerWrapper wraps the Server with HTTP handler logic
+type ServerWrapper struct {
+	Handler Server
 }
 
 // NewRouter creates a new router with all routes configured
-func NewRouter(si ServerInterface) *router.Mux {
+func NewRouter(si Server) *router.Mux {
 	r := router.NewRouter()
 
 	// Middleware
@@ -37,7 +37,7 @@ func NewRouter(si ServerInterface) *router.Mux {
 	r.Use(router.RequestID)
 	r.Use(router.RealIP)
 
-	wrapper := &ServerInterfaceWrapper{Handler: si}
+	wrapper := &ServerWrapper{Handler: si}
 
 	r.Get("/pets", wrapper.Handler.ListPets)
 	r.Post("/pets", wrapper.Handler.CreatePet)

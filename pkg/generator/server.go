@@ -52,8 +52,8 @@ func (g *ServerGenerator) Generate() (string, error) {
 
 // generateServerInterface generates the interface that users need to implement
 func (g *ServerGenerator) generateServerInterface(sb *strings.Builder) error {
-	sb.WriteString("// ServerInterface represents all server handlers\n")
-	sb.WriteString("type ServerInterface interface {\n")
+	sb.WriteString("// Server represents all server handlers\n")
+	sb.WriteString("type Server interface {\n")
 
 	if g.spec.Paths == nil {
 		sb.WriteString("}\n\n")
@@ -91,16 +91,16 @@ func (g *ServerGenerator) generateServerInterface(sb *strings.Builder) error {
 
 // generateHandlerWrapper generates the HTTP handler wrapper
 func (g *ServerGenerator) generateHandlerWrapper(sb *strings.Builder) {
-	sb.WriteString("// ServerInterfaceWrapper wraps the ServerInterface with HTTP handler logic\n")
-	sb.WriteString("type ServerInterfaceWrapper struct {\n")
-	sb.WriteString("\tHandler ServerInterface\n")
+	sb.WriteString("// ServerWrapper wraps the Server with HTTP handler logic\n")
+	sb.WriteString("type ServerWrapper struct {\n")
+	sb.WriteString("\tHandler Server\n")
 	sb.WriteString("}\n\n")
 }
 
 // generateRouter generates the router setup function
 func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	sb.WriteString("// NewRouter creates a new router with all routes configured\n")
-	sb.WriteString("func NewRouter(si ServerInterface) *router.Mux {\n")
+	sb.WriteString("func NewRouter(si Server) *router.Mux {\n")
 	sb.WriteString("\tr := router.NewRouter()\n")
 	sb.WriteString("\n")
 	sb.WriteString("\t// Middleware\n")
@@ -110,7 +110,7 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	sb.WriteString("\tr.Use(router.RealIP)\n")
 	sb.WriteString("\n")
 
-	sb.WriteString("\twrapper := &ServerInterfaceWrapper{Handler: si}\n")
+	sb.WriteString("\twrapper := &ServerWrapper{Handler: si}\n")
 	sb.WriteString("\n")
 
 	if g.spec.Paths != nil {

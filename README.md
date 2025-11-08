@@ -46,7 +46,7 @@ go install ./cmd/specweaver
 
 ### 2. Implement the Generated Interface
 
-The generator creates a `ServerInterface` that you need to implement:
+The generator creates a `Server` interface that you need to implement:
 
 ```go
 package main
@@ -123,7 +123,7 @@ const (
 Contains the interface and routing:
 
 ```go
-type ServerInterface interface {
+type Server interface {
     ListPets(w http.ResponseWriter, r *http.Request)
     CreatePet(w http.ResponseWriter, r *http.Request)
     GetPetById(w http.ResponseWriter, r *http.Request)
@@ -131,7 +131,7 @@ type ServerInterface interface {
     DeletePet(w http.ResponseWriter, r *http.Request)
 }
 
-func NewRouter(si ServerInterface) *chi.Mux {
+func NewRouter(si Server) *router.Mux {
     // Creates a configured router with all routes
 }
 ```
@@ -150,7 +150,7 @@ curl http://localhost:8080/pets
 ```
 
 The example demonstrates:
-- Complete ServerInterface implementation
+- Complete Server interface implementation
 - Request/response handling
 - Query parameter parsing
 - Path parameter extraction
