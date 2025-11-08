@@ -33,7 +33,7 @@ func TestRouterGet(t *testing.T) {
 	router.Get("/test", func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("GET test"))
+		_, _ = w.Write([]byte("GET test"))
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/test", nil)
@@ -62,7 +62,7 @@ func TestRouterPost(t *testing.T) {
 	router.Post("/items", func(w http.ResponseWriter, r *http.Request) {
 		called = true
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("POST items"))
+		_, _ = w.Write([]byte("POST items"))
 	})
 
 	req := httptest.NewRequest(http.MethodPost, "/items", nil)
@@ -489,27 +489,27 @@ func TestRouterComplexRouting(t *testing.T) {
 
 	// Register multiple routes
 	router.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("root"))
+		_, _ = w.Write([]byte("root"))
 	})
 
 	router.Get("/users", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("users"))
+		_, _ = w.Write([]byte("users"))
 	})
 
 	router.Get("/users/{id}", func(w http.ResponseWriter, r *http.Request) {
 		id := URLParam(r, "id")
-		w.Write([]byte("user-" + id))
+		_, _ = w.Write([]byte("user-" + id))
 	})
 
 	router.Post("/users", func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusCreated)
-		w.Write([]byte("user-created"))
+		_, _ = w.Write([]byte("user-created"))
 	})
 
 	router.Get("/users/{id}/posts/{postId}", func(w http.ResponseWriter, r *http.Request) {
 		userId := URLParam(r, "id")
 		postId := URLParam(r, "postId")
-		w.Write([]byte("user-" + userId + "-post-" + postId))
+		_, _ = w.Write([]byte("user-" + userId + "-post-" + postId))
 	})
 
 	tests := []struct {

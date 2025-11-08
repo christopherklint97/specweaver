@@ -18,7 +18,7 @@ func TestLogger(t *testing.T) {
 
 	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
-		w.Write([]byte("test"))
+		_, _ = w.Write([]byte("test"))
 	})
 
 	middleware := Logger(handler)
@@ -108,7 +108,7 @@ func TestLoggingResponseWriter(t *testing.T) {
 		}
 
 		// Write without calling WriteHeader
-		lrw.Write([]byte("test"))
+		_, _ = lrw.Write([]byte("test"))
 
 		if lrw.statusCode != http.StatusOK {
 			t.Errorf("Expected default status code %d, got %d", http.StatusOK, lrw.statusCode)
@@ -150,7 +150,7 @@ func TestRecoverer(t *testing.T) {
 	t.Run("No panic", func(t *testing.T) {
 		handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			w.WriteHeader(http.StatusOK)
-			w.Write([]byte("no panic"))
+			_, _ = w.Write([]byte("no panic"))
 		})
 
 		middleware := Recoverer(handler)

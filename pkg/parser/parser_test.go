@@ -9,7 +9,7 @@ import (
 func TestNew(t *testing.T) {
 	p := New()
 	if p == nil {
-		t.Error("Expected parser to be created")
+		t.Fatal("Expected parser to be created")
 	}
 
 	if p.spec != nil {
@@ -141,7 +141,7 @@ paths: {}`
 
 		spec := p.GetSpec()
 		if spec == nil {
-			t.Error("Expected spec to be available after parsing")
+			t.Fatal("Expected spec to be available after parsing")
 		}
 
 		if spec.Info.Title != "Test API" {
