@@ -138,7 +138,7 @@ func (g *TypeGenerator) generateEnum(sb *strings.Builder, name string, schema *o
 // resolveTypeWithRef resolves the Go type from a schema reference
 func (g *TypeGenerator) resolveTypeWithRef(ref *openapi3.SchemaRef) string {
 	if ref == nil {
-		return "interface{}"
+		return "any"
 	}
 
 	// If this is a reference to a component schema, extract the type name
@@ -157,7 +157,7 @@ func (g *TypeGenerator) resolveTypeWithRef(ref *openapi3.SchemaRef) string {
 // resolveType resolves the Go type for an OpenAPI schema
 func (g *TypeGenerator) resolveType(schema *openapi3.Schema) string {
 	if schema == nil {
-		return "interface{}"
+		return "any"
 	}
 
 	schemaType := getSchemaType(schema)
@@ -165,15 +165,15 @@ func (g *TypeGenerator) resolveType(schema *openapi3.Schema) string {
 	switch schemaType {
 	case "object", "":
 		if len(schema.Properties) > 0 {
-			return "map[string]interface{}"
+			return "map[string]any"
 		}
-		return "interface{}"
+		return "any"
 	case "array":
 		if schema.Items != nil {
 			itemType := g.resolveTypeWithRef(schema.Items)
 			return "[]" + itemType
 		}
-		return "[]interface{}"
+		return "[]any"
 	case "string":
 		if schema.Format == "date-time" {
 			return "time.Time"
@@ -195,7 +195,7 @@ func (g *TypeGenerator) resolveType(schema *openapi3.Schema) string {
 	case "boolean":
 		return "bool"
 	default:
-		return "interface{}"
+		return "any"
 	}
 }
 
@@ -219,7 +219,7 @@ func mapOpenAPITypeToGo(schema *openapi3.Schema) string {
 	case "boolean":
 		return "bool"
 	default:
-		return "interface{}"
+		return "any"
 	}
 }
 

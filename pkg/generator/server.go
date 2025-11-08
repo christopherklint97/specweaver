@@ -150,7 +150,7 @@ func (g *ServerGenerator) generateHelpers(sb *strings.Builder) {
 
 	// JSON response helper
 	sb.WriteString("// WriteJSON writes a JSON response\n")
-	sb.WriteString("func WriteJSON(w http.ResponseWriter, status int, v interface{}) error {\n")
+	sb.WriteString("func WriteJSON(w http.ResponseWriter, status int, v any) error {\n")
 	sb.WriteString("\tw.Header().Set(\"Content-Type\", \"application/json\")\n")
 	sb.WriteString("\tw.WriteHeader(status)\n")
 	sb.WriteString("\treturn json.NewEncoder(w).Encode(v)\n")
@@ -173,7 +173,7 @@ func (g *ServerGenerator) generateHelpers(sb *strings.Builder) {
 
 	// Read JSON helper
 	sb.WriteString("// ReadJSON reads and decodes JSON from request body\n")
-	sb.WriteString("func ReadJSON(r *http.Request, v interface{}) error {\n")
+	sb.WriteString("func ReadJSON(r *http.Request, v any) error {\n")
 	sb.WriteString("\tdefer r.Body.Close()\n")
 	sb.WriteString("\tbody, err := io.ReadAll(r.Body)\n")
 	sb.WriteString("\tif err != nil {\n")

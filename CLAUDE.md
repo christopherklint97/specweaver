@@ -100,7 +100,7 @@ The type resolution system handles several cases:
 2. **Schema References**: Extracts type name from `$ref` paths
    - Example: `#/components/schemas/Pet` → `Pet`
 3. **Arrays**: Resolves item types recursively
-4. **Objects**: Generates structs or uses `map[string]interface{}`
+4. **Objects**: Generates structs or uses `map[string]any`
 5. **Enums**: Creates string types with const declarations
 
 ### OpenAPI 3.x Compatibility
@@ -212,7 +212,7 @@ Generated code requires:
 
 1. **Type System Compatibility**: Updated to work with OpenAPI 3.x type system (slice-based types)
 2. **Naming Improvements**: Enhanced PascalCase conversion to handle compound words correctly
-3. **Reference Resolution**: Proper handling of `$ref` to generate correct type names instead of `map[string]interface{}`
+3. **Reference Resolution**: Proper handling of `$ref` to generate correct type names instead of `map[string]any`
 4. **Code Quality**: Added comprehensive comments and documentation
 
 ## Future Enhancements (Potential)

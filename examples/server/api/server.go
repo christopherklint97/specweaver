@@ -52,7 +52,7 @@ func NewRouter(si ServerInterface) *chi.Mux {
 // Helper functions for request/response handling
 
 // WriteJSON writes a JSON response
-func WriteJSON(w http.ResponseWriter, status int, v interface{}) error {
+func WriteJSON(w http.ResponseWriter, status int, v any) error {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
 	return json.NewEncoder(w).Encode(v)
@@ -73,7 +73,7 @@ func WriteError(w http.ResponseWriter, status int, err error) {
 }
 
 // ReadJSON reads and decodes JSON from request body
-func ReadJSON(r *http.Request, v interface{}) error {
+func ReadJSON(r *http.Request, v any) error {
 	defer r.Body.Close()
 	body, err := io.ReadAll(r.Body)
 	if err != nil {
