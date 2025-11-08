@@ -4,9 +4,16 @@ import (
 	"time"
 )
 
+type Error struct {
+	// Error code
+	Code int `json:"code,omitempty"`
+	// Error type
+	Error string `json:"error"`
+	// Detailed error message
+	Message string `json:"message,omitempty"`
+}
+
 type Pet struct {
-	Owner *Owner `json:"owner,omitempty"`
-	Status PetStatus `json:"status"`
 	// Tag to categorize the pet
 	Tag string `json:"tag,omitempty"`
 	// Birth date of the pet
@@ -15,6 +22,8 @@ type Pet struct {
 	Id int64 `json:"id"`
 	// Name of the pet
 	Name string `json:"name"`
+	Owner *Owner `json:"owner,omitempty"`
+	Status PetStatus `json:"status"`
 }
 
 type NewPet struct {
@@ -29,12 +38,12 @@ type NewPet struct {
 }
 
 type Owner struct {
-	// Email address of the owner
-	Email string `json:"email,omitempty"`
 	// Name of the owner
 	Name string `json:"name"`
 	// Phone number of the owner
 	Phone string `json:"phone,omitempty"`
+	// Email address of the owner
+	Email string `json:"email,omitempty"`
 }
 
 // PetStatus Current status of the pet
@@ -45,13 +54,4 @@ const (
 	PetStatusPending PetStatus = "pending"
 	PetStatusSold PetStatus = "sold"
 )
-
-type Error struct {
-	// Error code
-	Code int `json:"code,omitempty"`
-	// Error type
-	Error string `json:"error"`
-	// Detailed error message
-	Message string `json:"message,omitempty"`
-}
 

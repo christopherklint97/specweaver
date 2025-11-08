@@ -83,15 +83,8 @@ type DeletePetRequest struct {
 type ListPetsResponse interface {
 	isListPetsResponse()
 	StatusCode() int
+	ResponseBody() any
 }
-
-// ListPets500Response represents a 500 response
-type ListPets500Response struct {
-	Body Error `json:"body"`
-}
-
-func (r ListPets500Response) isListPetsResponse() {}
-func (r ListPets500Response) StatusCode() int { return 500 }
 
 // ListPets200Response represents a 200 response
 type ListPets200Response struct {
@@ -100,11 +93,22 @@ type ListPets200Response struct {
 
 func (r ListPets200Response) isListPetsResponse() {}
 func (r ListPets200Response) StatusCode() int { return 200 }
+func (r ListPets200Response) ResponseBody() any { return r.Body }
+
+// ListPets500Response represents a 500 response
+type ListPets500Response struct {
+	Body Error `json:"body"`
+}
+
+func (r ListPets500Response) isListPetsResponse() {}
+func (r ListPets500Response) StatusCode() int { return 500 }
+func (r ListPets500Response) ResponseBody() any { return r.Body }
 
 // CreatePetResponse represents possible responses for CreatePet
 type CreatePetResponse interface {
 	isCreatePetResponse()
 	StatusCode() int
+	ResponseBody() any
 }
 
 // CreatePet201Response represents a 201 response
@@ -114,6 +118,7 @@ type CreatePet201Response struct {
 
 func (r CreatePet201Response) isCreatePetResponse() {}
 func (r CreatePet201Response) StatusCode() int { return 201 }
+func (r CreatePet201Response) ResponseBody() any { return r.Body }
 
 // CreatePet400Response represents a 400 response
 type CreatePet400Response struct {
@@ -122,20 +127,38 @@ type CreatePet400Response struct {
 
 func (r CreatePet400Response) isCreatePetResponse() {}
 func (r CreatePet400Response) StatusCode() int { return 400 }
+func (r CreatePet400Response) ResponseBody() any { return r.Body }
+
+// DeletePetResponse represents possible responses for DeletePet
+type DeletePetResponse interface {
+	isDeletePetResponse()
+	StatusCode() int
+	ResponseBody() any
+}
+
+// DeletePet204Response represents a 204 response
+type DeletePet204Response struct {
+}
+
+func (r DeletePet204Response) isDeletePetResponse() {}
+func (r DeletePet204Response) StatusCode() int { return 204 }
+func (r DeletePet204Response) ResponseBody() any { return nil }
+
+// DeletePet404Response represents a 404 response
+type DeletePet404Response struct {
+	Body Error `json:"body"`
+}
+
+func (r DeletePet404Response) isDeletePetResponse() {}
+func (r DeletePet404Response) StatusCode() int { return 404 }
+func (r DeletePet404Response) ResponseBody() any { return r.Body }
 
 // GetPetByIdResponse represents possible responses for GetPetById
 type GetPetByIdResponse interface {
 	isGetPetByIdResponse()
 	StatusCode() int
+	ResponseBody() any
 }
-
-// GetPetById200Response represents a 200 response
-type GetPetById200Response struct {
-	Body Pet `json:"body"`
-}
-
-func (r GetPetById200Response) isGetPetByIdResponse() {}
-func (r GetPetById200Response) StatusCode() int { return 200 }
 
 // GetPetById404Response represents a 404 response
 type GetPetById404Response struct {
@@ -144,11 +167,22 @@ type GetPetById404Response struct {
 
 func (r GetPetById404Response) isGetPetByIdResponse() {}
 func (r GetPetById404Response) StatusCode() int { return 404 }
+func (r GetPetById404Response) ResponseBody() any { return r.Body }
+
+// GetPetById200Response represents a 200 response
+type GetPetById200Response struct {
+	Body Pet `json:"body"`
+}
+
+func (r GetPetById200Response) isGetPetByIdResponse() {}
+func (r GetPetById200Response) StatusCode() int { return 200 }
+func (r GetPetById200Response) ResponseBody() any { return r.Body }
 
 // UpdatePetResponse represents possible responses for UpdatePet
 type UpdatePetResponse interface {
 	isUpdatePetResponse()
 	StatusCode() int
+	ResponseBody() any
 }
 
 // UpdatePet200Response represents a 200 response
@@ -158,6 +192,7 @@ type UpdatePet200Response struct {
 
 func (r UpdatePet200Response) isUpdatePetResponse() {}
 func (r UpdatePet200Response) StatusCode() int { return 200 }
+func (r UpdatePet200Response) ResponseBody() any { return r.Body }
 
 // UpdatePet404Response represents a 404 response
 type UpdatePet404Response struct {
@@ -166,40 +201,20 @@ type UpdatePet404Response struct {
 
 func (r UpdatePet404Response) isUpdatePetResponse() {}
 func (r UpdatePet404Response) StatusCode() int { return 404 }
-
-// DeletePetResponse represents possible responses for DeletePet
-type DeletePetResponse interface {
-	isDeletePetResponse()
-	StatusCode() int
-}
-
-// DeletePet204Response represents a 204 response
-type DeletePet204Response struct {
-}
-
-func (r DeletePet204Response) isDeletePetResponse() {}
-func (r DeletePet204Response) StatusCode() int { return 204 }
-
-// DeletePet404Response represents a 404 response
-type DeletePet404Response struct {
-	Body Error `json:"body"`
-}
-
-func (r DeletePet404Response) isDeletePetResponse() {}
-func (r DeletePet404Response) StatusCode() int { return 404 }
+func (r UpdatePet404Response) ResponseBody() any { return r.Body }
 
 // Server represents all server handlers
 type Server interface {
+	// CreatePet Create a pet
+	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
+	// ListPets List all pets
+	ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
 	// DeletePet Delete a pet
 	DeletePet(ctx context.Context, req DeletePetRequest) (DeletePetResponse, error)
 	// GetPetById Get a pet by ID
 	GetPetById(ctx context.Context, req GetPetByIdRequest) (GetPetByIdResponse, error)
 	// UpdatePet Update a pet
 	UpdatePet(ctx context.Context, req UpdatePetRequest) (UpdatePetResponse, error)
-	// CreatePet Create a pet
-	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
-	// ListPets List all pets
-	ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
 }
 
 // ServerWrapper wraps the Server with HTTP handler logic
@@ -252,31 +267,6 @@ func (w *ServerWrapper) handleCreatePet(rw http.ResponseWriter, r *http.Request)
 
 	// Call handler
 	resp, err := w.Handler.CreatePet(ctx, req)
-	if err != nil {
-		w.handleError(rw, err)
-		return
-	}
-
-	// Write response
-	WriteResponse(rw, resp)
-}
-
-// handleGetPetById adapts HTTP request to GetPetById handler
-func (w *ServerWrapper) handleGetPetById(rw http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	req := GetPetByIdRequest{}
-
-	// Parse path parameter: petId
-	petIdStr := router.URLParam(r, "petId")
-	petIdVal, err := strconv.ParseInt(petIdStr, 10, 64)
-	if err != nil {
-		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid petId parameter"))
-		return
-	}
-	req.PetId = int64(petIdVal)
-
-	// Call handler
-	resp, err := w.Handler.GetPetById(ctx, req)
 	if err != nil {
 		w.handleError(rw, err)
 		return
@@ -342,6 +332,31 @@ func (w *ServerWrapper) handleDeletePet(rw http.ResponseWriter, r *http.Request)
 	WriteResponse(rw, resp)
 }
 
+// handleGetPetById adapts HTTP request to GetPetById handler
+func (w *ServerWrapper) handleGetPetById(rw http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	req := GetPetByIdRequest{}
+
+	// Parse path parameter: petId
+	petIdStr := router.URLParam(r, "petId")
+	petIdVal, err := strconv.ParseInt(petIdStr, 10, 64)
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid petId parameter"))
+		return
+	}
+	req.PetId = int64(petIdVal)
+
+	// Call handler
+	resp, err := w.Handler.GetPetById(ctx, req)
+	if err != nil {
+		w.handleError(rw, err)
+		return
+	}
+
+	// Write response
+	WriteResponse(rw, resp)
+}
+
 // handleError handles errors and writes appropriate HTTP responses
 func (w *ServerWrapper) handleError(rw http.ResponseWriter, err error) {
 	var httpErr *HTTPError
@@ -385,19 +400,21 @@ func WriteJSON(w http.ResponseWriter, status int, v any) error {
 
 // WriteResponse writes a response based on its type
 func WriteResponse(w http.ResponseWriter, resp any) error {
-	// Extract status code using type assertion
-	type statusCoder interface {
+	// Extract status code and body using type assertion
+	type responseWriter interface {
 		StatusCode() int
+		ResponseBody() any
 	}
 
-	if sc, ok := resp.(statusCoder); ok {
-		statusCode := sc.StatusCode()
-		// For 204 No Content, don't write a body
-		if statusCode == http.StatusNoContent {
+	if rw, ok := resp.(responseWriter); ok {
+		statusCode := rw.StatusCode()
+		body := rw.ResponseBody()
+		// For 204 No Content or nil body, don't write a body
+		if statusCode == http.StatusNoContent || body == nil {
 			w.WriteHeader(statusCode)
 			return nil
 		}
-		return WriteJSON(w, statusCode, resp)
+		return WriteJSON(w, statusCode, body)
 	}
 	// Fallback to 200 OK
 	return WriteJSON(w, http.StatusOK, resp)

@@ -218,6 +218,7 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 			sb.WriteString(fmt.Sprintf("type %s interface {\n", responseTypeName))
 			sb.WriteString(fmt.Sprintf("\tis%s()\n", responseTypeName))
 			sb.WriteString("\tStatusCode() int\n")
+			sb.WriteString("\tResponseBody() any\n")
 			sb.WriteString("}\n\n")
 
 			// Generate concrete response types for each status code
@@ -244,10 +245,12 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 					sb.WriteString(fmt.Sprintf("type %s struct {\n", concreteTypeName))
 
 					// Check if response has content
+					hasBody := false
 					if response.Content != nil {
 						if jsonContent, ok := response.Content["application/json"]; ok && jsonContent.Schema != nil {
 							bodyType := g.resolveSchemaType(jsonContent.Schema)
 							sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
+							hasBody = true
 						}
 					}
 
@@ -255,7 +258,14 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 
 					// Generate interface implementation methods
 					sb.WriteString(fmt.Sprintf("func (r %s) is%s() {}\n", concreteTypeName, responseTypeName))
-					sb.WriteString(fmt.Sprintf("func (r %s) StatusCode() int { return %d }\n\n", concreteTypeName, statusCodeInt))
+					sb.WriteString(fmt.Sprintf("func (r %s) StatusCode() int { return %d }\n", concreteTypeName, statusCodeInt))
+
+					// Generate ResponseBody method
+					if hasBody {
+						sb.WriteString(fmt.Sprintf("func (r %s) ResponseBody() any { return r.Body }\n\n", concreteTypeName))
+					} else {
+						sb.WriteString(fmt.Sprintf("func (r %s) ResponseBody() any { return nil }\n\n", concreteTypeName))
+					}
 				}
 			}
 		}
@@ -576,18 +586,20 @@ func (g *ServerGenerator) generateHelpers(sb *strings.Builder) {
 	// Generic response writer
 	sb.WriteString("// WriteResponse writes a response based on its type\n")
 	sb.WriteString("func WriteResponse(w http.ResponseWriter, resp any) error {\n")
-	sb.WriteString("\t// Extract status code using type assertion\n")
-	sb.WriteString("\ttype statusCoder interface {\n")
+	sb.WriteString("\t// Extract status code and body using type assertion\n")
+	sb.WriteString("\ttype responseWriter interface {\n")
 	sb.WriteString("\t\tStatusCode() int\n")
+	sb.WriteString("\t\tResponseBody() any\n")
 	sb.WriteString("\t}\n\n")
-	sb.WriteString("\tif sc, ok := resp.(statusCoder); ok {\n")
-	sb.WriteString("\t\tstatusCode := sc.StatusCode()\n")
-	sb.WriteString("\t\t// For 204 No Content, don't write a body\n")
-	sb.WriteString("\t\tif statusCode == http.StatusNoContent {\n")
+	sb.WriteString("\tif rw, ok := resp.(responseWriter); ok {\n")
+	sb.WriteString("\t\tstatusCode := rw.StatusCode()\n")
+	sb.WriteString("\t\tbody := rw.ResponseBody()\n")
+	sb.WriteString("\t\t// For 204 No Content or nil body, don't write a body\n")
+	sb.WriteString("\t\tif statusCode == http.StatusNoContent || body == nil {\n")
 	sb.WriteString("\t\t\tw.WriteHeader(statusCode)\n")
 	sb.WriteString("\t\t\treturn nil\n")
 	sb.WriteString("\t\t}\n")
-	sb.WriteString("\t\treturn WriteJSON(w, statusCode, resp)\n")
+	sb.WriteString("\t\treturn WriteJSON(w, statusCode, body)\n")
 	sb.WriteString("\t}\n")
 	sb.WriteString("\t// Fallback to 200 OK\n")
 	sb.WriteString("\treturn WriteJSON(w, http.StatusOK, resp)\n")
