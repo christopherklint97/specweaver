@@ -115,7 +115,8 @@ func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema 
 			}
 
 			// Add field comment if description exists
-			if propSchema.Description != "" {
+			// propSchema may be nil for reference-only properties
+			if propSchema != nil && propSchema.Description != "" {
 				sb.WriteString(fmt.Sprintf("\t// %s\n", propSchema.Description))
 			}
 
