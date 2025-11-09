@@ -413,3 +413,37 @@ func TestAuthGeneratorSecuritySchemeInfo(t *testing.T) {
 	assert.Contains(t, code, "In     string", "SecuritySchemeInfo should have In field")
 	assert.Contains(t, code, "Name   string", "SecuritySchemeInfo should have Name field")
 }
+
+func TestAuthMiddlewareSkipsWhenAuthenticatorIsNil(t *testing.T) {
+	spec := &openapi.Document{
+		OpenAPI: "3.1.0",
+		Info: &openapi.Info{
+			Title:   "Test API",
+			Version: "1.0.0",
+		},
+		Components: &openapi.Components{
+			SecuritySchemes: map[string]*openapi.SecurityScheme{
+				"basicAuth": {
+					Type:   "http",
+					Scheme: "basic",
+				},
+			},
+		},
+	}
+
+	gen := NewAuthGenerator(spec)
+	code, err := gen.Generate()
+	require.NoError(t, err)
+
+	// Verify middleware checks for nil authenticator
+	assert.Contains(t, code, "if authenticator == nil {",
+		"Middleware should check for nil authenticator")
+	assert.Contains(t, code, "// If no authenticator provided, skip authentication",
+		"Middleware should have comment about nil authenticator")
+
+	// Verify the nil check comes before security requirements processing
+	nilCheckPos := strings.Index(code, "if authenticator == nil {")
+	secReqsPos := strings.Index(code, "// Try each security requirement")
+	assert.Greater(t, secReqsPos, nilCheckPos,
+		"Nil authenticator check should come before security requirements processing")
+}

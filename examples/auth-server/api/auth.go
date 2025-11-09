@@ -103,6 +103,12 @@ func authMiddleware(authenticator Authenticator, securityReqs []map[string][]str
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			ctx := r.Context()
 
+			// If no authenticator provided, skip authentication
+			if authenticator == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
 			// If no security requirements, continue without authentication
 			if len(securityReqs) == 0 {
 				next.ServeHTTP(w, r)

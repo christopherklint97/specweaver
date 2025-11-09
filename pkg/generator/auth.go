@@ -180,6 +180,12 @@ func (g *AuthGenerator) generateAuthMiddleware(sb *strings.Builder) {
 	sb.WriteString("\t\treturn http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {\n")
 	sb.WriteString("\t\t\tctx := r.Context()\n\n")
 
+	sb.WriteString("\t\t\t// If no authenticator provided, skip authentication\n")
+	sb.WriteString("\t\t\tif authenticator == nil {\n")
+	sb.WriteString("\t\t\t\tnext.ServeHTTP(w, r)\n")
+	sb.WriteString("\t\t\t\treturn\n")
+	sb.WriteString("\t\t\t}\n\n")
+
 	sb.WriteString("\t\t\t// If no security requirements, continue without authentication\n")
 	sb.WriteString("\t\t\tif len(securityReqs) == 0 {\n")
 	sb.WriteString("\t\t\t\tnext.ServeHTTP(w, r)\n")
