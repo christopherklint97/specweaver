@@ -75,6 +75,15 @@ func normalizeDocument(doc *Document) error {
 		}
 	}
 
+	// Normalize schemas in webhooks
+	if doc.Webhooks != nil {
+		for _, pathItem := range doc.Webhooks {
+			if err := normalizePathItem(pathItem); err != nil {
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -240,10 +249,9 @@ func validateDocument(doc *Document) error {
 		return fmt.Errorf("info.version is required")
 	}
 
-	// At least one of paths, components, or webhooks should be present
-	// (webhooks not yet implemented, so we check paths or components)
-	if doc.Paths == nil && doc.Components == nil {
-		return fmt.Errorf("document must have at least one of: paths, components")
+	// At least one of paths, webhooks, or components should be present
+	if doc.Paths == nil && doc.Webhooks == nil && doc.Components == nil {
+		return fmt.Errorf("document must have at least one of: paths, webhooks, components")
 	}
 
 	return nil

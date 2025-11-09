@@ -59,11 +59,19 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate auth: %w", err)
 	}
 
+	// Generate webhooks (if webhooks are defined)
+	if err := g.generateWebhooks(); err != nil {
+		return fmt.Errorf("failed to generate webhooks: %w", err)
+	}
+
 	fmt.Printf("✓ Code generated successfully in %s/\n", g.outputDir)
 	fmt.Printf("  - types.go: Type definitions\n")
 	fmt.Printf("  - server.go: Server handlers and router\n")
 	if g.hasSecuritySchemes() {
 		fmt.Printf("  - auth.go: Authentication middleware and types\n")
+	}
+	if g.hasWebhooks() {
+		fmt.Printf("  - webhooks.go: Webhook client and sender functions\n")
 	}
 
 	return nil
@@ -122,9 +130,40 @@ func (g *Generator) generateAuth() error {
 	return nil
 }
 
+// generateWebhooks generates webhook client code
+func (g *Generator) generateWebhooks() error {
+	// Only generate webhooks.go if there are webhooks
+	if !g.hasWebhooks() {
+		return nil
+	}
+
+	webhookGen := NewWebhookGenerator(g.spec)
+	code, err := webhookGen.Generate()
+	if err != nil {
+		return err
+	}
+
+	// Only write the file if there's content
+	if code == "" {
+		return nil
+	}
+
+	outputPath := filepath.Join(g.outputDir, "webhooks.go")
+	if err := os.WriteFile(outputPath, []byte(code), 0644); err != nil {
+		return fmt.Errorf("failed to write webhooks file: %w", err)
+	}
+
+	return nil
+}
+
 // hasSecuritySchemes checks if the spec defines any security schemes
 func (g *Generator) hasSecuritySchemes() bool {
 	return g.spec.Components != nil &&
 		g.spec.Components.SecuritySchemes != nil &&
 		len(g.spec.Components.SecuritySchemes) > 0
+}
+
+// hasWebhooks checks if the spec defines any webhooks
+func (g *Generator) hasWebhooks() bool {
+	return len(g.spec.Webhooks) > 0
 }
