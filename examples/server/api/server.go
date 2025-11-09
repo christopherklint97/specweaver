@@ -59,12 +59,6 @@ type CreatePetRequest struct {
 	Body NewPet `json:"body"`
 }
 
-// GetPetByIdRequest represents the request for GetPetById
-type GetPetByIdRequest struct {
-	// The ID of the pet to retrieve
-	PetId int64 `json:"petId"`
-}
-
 // UpdatePetRequest represents the request for UpdatePet
 type UpdatePetRequest struct {
 	// The ID of the pet to update
@@ -76,6 +70,12 @@ type UpdatePetRequest struct {
 // DeletePetRequest represents the request for DeletePet
 type DeletePetRequest struct {
 	// The ID of the pet to delete
+	PetId int64 `json:"petId"`
+}
+
+// GetPetByIdRequest represents the request for GetPetById
+type GetPetByIdRequest struct {
+	// The ID of the pet to retrieve
 	PetId int64 `json:"petId"`
 }
 
@@ -129,45 +129,12 @@ func (r CreatePet400Response) isCreatePetResponse() {}
 func (r CreatePet400Response) StatusCode() int { return 400 }
 func (r CreatePet400Response) ResponseBody() any { return r.Body }
 
-// DeletePetResponse represents possible responses for DeletePet
-type DeletePetResponse interface {
-	isDeletePetResponse()
-	StatusCode() int
-	ResponseBody() any
-}
-
-// DeletePet204Response represents a 204 response
-type DeletePet204Response struct {
-}
-
-func (r DeletePet204Response) isDeletePetResponse() {}
-func (r DeletePet204Response) StatusCode() int { return 204 }
-func (r DeletePet204Response) ResponseBody() any { return nil }
-
-// DeletePet404Response represents a 404 response
-type DeletePet404Response struct {
-	Body Error `json:"body"`
-}
-
-func (r DeletePet404Response) isDeletePetResponse() {}
-func (r DeletePet404Response) StatusCode() int { return 404 }
-func (r DeletePet404Response) ResponseBody() any { return r.Body }
-
 // GetPetByIdResponse represents possible responses for GetPetById
 type GetPetByIdResponse interface {
 	isGetPetByIdResponse()
 	StatusCode() int
 	ResponseBody() any
 }
-
-// GetPetById404Response represents a 404 response
-type GetPetById404Response struct {
-	Body Error `json:"body"`
-}
-
-func (r GetPetById404Response) isGetPetByIdResponse() {}
-func (r GetPetById404Response) StatusCode() int { return 404 }
-func (r GetPetById404Response) ResponseBody() any { return r.Body }
 
 // GetPetById200Response represents a 200 response
 type GetPetById200Response struct {
@@ -177,6 +144,15 @@ type GetPetById200Response struct {
 func (r GetPetById200Response) isGetPetByIdResponse() {}
 func (r GetPetById200Response) StatusCode() int { return 200 }
 func (r GetPetById200Response) ResponseBody() any { return r.Body }
+
+// GetPetById404Response represents a 404 response
+type GetPetById404Response struct {
+	Body Error `json:"body"`
+}
+
+func (r GetPetById404Response) isGetPetByIdResponse() {}
+func (r GetPetById404Response) StatusCode() int { return 404 }
+func (r GetPetById404Response) ResponseBody() any { return r.Body }
 
 // UpdatePetResponse represents possible responses for UpdatePet
 type UpdatePetResponse interface {
@@ -203,12 +179,36 @@ func (r UpdatePet404Response) isUpdatePetResponse() {}
 func (r UpdatePet404Response) StatusCode() int { return 404 }
 func (r UpdatePet404Response) ResponseBody() any { return r.Body }
 
+// DeletePetResponse represents possible responses for DeletePet
+type DeletePetResponse interface {
+	isDeletePetResponse()
+	StatusCode() int
+	ResponseBody() any
+}
+
+// DeletePet404Response represents a 404 response
+type DeletePet404Response struct {
+	Body Error `json:"body"`
+}
+
+func (r DeletePet404Response) isDeletePetResponse() {}
+func (r DeletePet404Response) StatusCode() int { return 404 }
+func (r DeletePet404Response) ResponseBody() any { return r.Body }
+
+// DeletePet204Response represents a 204 response
+type DeletePet204Response struct {
+}
+
+func (r DeletePet204Response) isDeletePetResponse() {}
+func (r DeletePet204Response) StatusCode() int { return 204 }
+func (r DeletePet204Response) ResponseBody() any { return nil }
+
 // Server represents all server handlers
 type Server interface {
-	// CreatePet Create a pet
-	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
 	// ListPets List all pets
 	ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
+	// CreatePet Create a pet
+	CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
 	// DeletePet Delete a pet
 	DeletePet(ctx context.Context, req DeletePetRequest) (DeletePetResponse, error)
 	// GetPetById Get a pet by ID
@@ -220,6 +220,28 @@ type Server interface {
 // ServerWrapper wraps the Server with HTTP handler logic
 type ServerWrapper struct {
 	Handler Server
+}
+
+// handleCreatePet adapts HTTP request to CreatePet handler
+func (w *ServerWrapper) handleCreatePet(rw http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	req := CreatePetRequest{}
+
+	// Parse request body
+	if err := ReadJSON(r, &req.Body); err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+	// Call handler
+	resp, err := w.Handler.CreatePet(ctx, req)
+	if err != nil {
+		w.handleError(rw, err)
+		return
+	}
+
+	// Write response
+	WriteResponse(rw, resp)
 }
 
 // handleListPets adapts HTTP request to ListPets handler
@@ -254,19 +276,22 @@ func (w *ServerWrapper) handleListPets(rw http.ResponseWriter, r *http.Request) 
 	WriteResponse(rw, resp)
 }
 
-// handleCreatePet adapts HTTP request to CreatePet handler
-func (w *ServerWrapper) handleCreatePet(rw http.ResponseWriter, r *http.Request) {
+// handleGetPetById adapts HTTP request to GetPetById handler
+func (w *ServerWrapper) handleGetPetById(rw http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	req := CreatePetRequest{}
+	req := GetPetByIdRequest{}
 
-	// Parse request body
-	if err := ReadJSON(r, &req.Body); err != nil {
-		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid request body"))
+	// Parse path parameter: petId
+	petIdStr := router.URLParam(r, "petId")
+	petIdVal, err := strconv.ParseInt(petIdStr, 10, 64)
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid petId parameter"))
 		return
 	}
+	req.PetId = int64(petIdVal)
 
 	// Call handler
-	resp, err := w.Handler.CreatePet(ctx, req)
+	resp, err := w.Handler.GetPetById(ctx, req)
 	if err != nil {
 		w.handleError(rw, err)
 		return
@@ -332,31 +357,6 @@ func (w *ServerWrapper) handleDeletePet(rw http.ResponseWriter, r *http.Request)
 	WriteResponse(rw, resp)
 }
 
-// handleGetPetById adapts HTTP request to GetPetById handler
-func (w *ServerWrapper) handleGetPetById(rw http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-	req := GetPetByIdRequest{}
-
-	// Parse path parameter: petId
-	petIdStr := router.URLParam(r, "petId")
-	petIdVal, err := strconv.ParseInt(petIdStr, 10, 64)
-	if err != nil {
-		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid petId parameter"))
-		return
-	}
-	req.PetId = int64(petIdVal)
-
-	// Call handler
-	resp, err := w.Handler.GetPetById(ctx, req)
-	if err != nil {
-		w.handleError(rw, err)
-		return
-	}
-
-	// Write response
-	WriteResponse(rw, resp)
-}
-
 // handleError handles errors and writes appropriate HTTP responses
 func (w *ServerWrapper) handleError(rw http.ResponseWriter, err error) {
 	var httpErr *HTTPError
@@ -368,24 +368,40 @@ func (w *ServerWrapper) handleError(rw http.ResponseWriter, err error) {
 	WriteError(rw, http.StatusInternalServerError, err)
 }
 
-// NewRouter creates a new router with all routes configured
+// ConfigureRouter configures the given router with all routes.
+// This function allows you to use any router that implements the router.Router interface.
+//
+// Example with built-in router:
+//
+//	r := router.NewRouter()
+//	ConfigureRouter(r, myServer)
+//
+// Example with custom router:
+//
+//	r := myCustomRouter.New() // Must implement router.Router interface
+//	ConfigureRouter(r, myServer)
+func ConfigureRouter(r router.Router, si Server) {
+	wrapper := &ServerWrapper{Handler: si}
+
+	r.Post("/pets", wrapper.handleCreatePet)
+	r.Get("/pets", wrapper.handleListPets)
+	r.Get("/pets/{petId}", wrapper.handleGetPetById)
+	r.Put("/pets/{petId}", wrapper.handleUpdatePet)
+	r.Delete("/pets/{petId}", wrapper.handleDeletePet)
+}
+
+// NewRouter creates a new router with all routes configured using the built-in router.
+// For using a custom router, use ConfigureRouter instead.
 func NewRouter(si Server) *router.Mux {
 	r := router.NewRouter()
 
-	// Middleware
+	// Default middleware
 	r.Use(router.Logger)
 	r.Use(router.Recoverer)
 	r.Use(router.RequestID)
 	r.Use(router.RealIP)
 
-	wrapper := &ServerWrapper{Handler: si}
-
-	r.Get("/pets", wrapper.handleListPets)
-	r.Post("/pets", wrapper.handleCreatePet)
-	r.Get("/pets/{petId}", wrapper.handleGetPetById)
-	r.Put("/pets/{petId}", wrapper.handleUpdatePet)
-	r.Delete("/pets/{petId}", wrapper.handleDeletePet)
-
+	ConfigureRouter(r, si)
 	return r
 }
 

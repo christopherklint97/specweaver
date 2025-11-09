@@ -125,5 +125,6 @@ jobs:
         run: |
           cd /tmp/generated
           go mod init generated-test
+          go mod edit -replace github.com/christopherklint97/specweaver=$GITHUB_WORKSPACE
           go mod tidy
           go build -v ./...
