@@ -267,11 +267,12 @@ Contains all your data models:
 
 ```go
 type Pet struct {
-    Id        int64      `json:"id"`
-    Name      string     `json:"name"`
-    Status    PetStatus  `json:"status"`
-    BirthDate *time.Time `json:"birthDate,omitempty"`
-    Owner     *Owner     `json:"owner,omitempty"`
+    Id         int64      `json:"id"`
+    Name       string     `json:"name"`
+    Status     PetStatus  `json:"status"`
+    BirthDate  *date.Date `json:"birthDate,omitempty"`
+    CreatedAt  *time.Time `json:"createdAt,omitempty"`
+    Owner      *Owner     `json:"owner,omitempty"`
 }
 
 type PetStatus string
@@ -424,6 +425,7 @@ SpecWeaver intelligently maps OpenAPI types to Go:
 | OpenAPI Type | Format | Go Type |
 |--------------|--------|---------|
 | `string` | - | `string` |
+| `string` | `date` | `date.Date` |
 | `string` | `date-time` | `time.Time` |
 | `integer` | `int32` | `int` |
 | `integer` | `int64` | `int64` |
@@ -453,7 +455,7 @@ SpecWeaver intelligently maps OpenAPI types to Go:
 - ✅ Query parameters
 - ✅ Request/response bodies
 - ✅ Nested objects
-- ✅ Format specifications (date-time, int64, etc.)
+- ✅ Format specifications (date, date-time, int64, float, etc.)
 
 ## Project Structure
 
@@ -477,7 +479,10 @@ specweaver/
 - **No external routing dependencies** - Custom lightweight router
 
 ### Generated Code Dependencies
-- **Zero external dependencies** - All generated code uses only Go standard library and the custom router from this project
+- **Minimal dependencies** - Generated code uses only:
+  - Go standard library
+  - `github.com/christopherklint97/specweaver/pkg/router` - Custom router (no external deps)
+  - `google.golang.org/genproto/googleapis/type/date` - Only when `format: date` is used
 
 ## Development
 

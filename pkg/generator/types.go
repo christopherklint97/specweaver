@@ -12,6 +12,8 @@ import (
 type TypeGenerator struct {
 	spec      *openapi.Document
 	generated map[string]bool
+	usesTime  bool // tracks if time.Time is used
+	usesDate  bool // tracks if date.Date is used
 }
 
 // NewTypeGenerator creates a new TypeGenerator instance
@@ -27,15 +29,13 @@ func (g *TypeGenerator) Generate() (string, error) {
 	var sb strings.Builder
 
 	sb.WriteString("package api\n\n")
-	sb.WriteString("import (\n")
-	sb.WriteString("\t\"time\"\n")
-	sb.WriteString(")\n\n")
 
 	if g.spec.Components == nil || g.spec.Components.Schemas == nil {
 		return sb.String(), nil
 	}
 
-	// Generate types for all schemas in components (in sorted order for determinism)
+	// First pass: generate types to determine which imports are needed
+	var typesSB strings.Builder
 	schemaNames := make([]string, 0, len(g.spec.Components.Schemas))
 	for name := range g.spec.Components.Schemas {
 		schemaNames = append(schemaNames, name)
@@ -44,10 +44,25 @@ func (g *TypeGenerator) Generate() (string, error) {
 
 	for _, name := range schemaNames {
 		schemaRef := g.spec.Components.Schemas[name]
-		if err := g.generateType(&sb, name, schemaRef.Value); err != nil {
+		if err := g.generateType(&typesSB, name, schemaRef.Value); err != nil {
 			return "", fmt.Errorf("failed to generate type for %s: %w", name, err)
 		}
 	}
+
+	// Add imports based on what types are used
+	if g.usesTime || g.usesDate {
+		sb.WriteString("import (\n")
+		if g.usesTime {
+			sb.WriteString("\t\"time\"\n")
+		}
+		if g.usesDate {
+			sb.WriteString("\tdate \"google.golang.org/genproto/googleapis/type/date\"\n")
+		}
+		sb.WriteString(")\n\n")
+	}
+
+	// Write the generated types
+	sb.WriteString(typesSB.String())
 
 	return sb.String(), nil
 }
@@ -199,10 +214,12 @@ func (g *TypeGenerator) resolveType(schema *openapi.Schema) string {
 		return "[]any"
 	case "string":
 		if schema.Format == "date-time" {
+			g.usesTime = true
 			return "time.Time"
 		}
 		if schema.Format == "date" {
-			return "string" // or custom Date type
+			g.usesDate = true
+			return "date.Date"
 		}
 		return "string"
 	case "integer":

@@ -65,9 +65,6 @@ func TestGenerateSimpleTypes(t *testing.T) {
 	// Check package declaration
 	assert.Contains(t, code, "package api", "Expected package declaration")
 
-	// Check imports
-	assert.Contains(t, code, "import", "Expected import section")
-
 	// Check type declaration
 	assert.Contains(t, code, "type Pet struct", "Expected Pet struct declaration")
 
@@ -245,6 +242,56 @@ func TestGenerateTimeType(t *testing.T) {
 	assert.Contains(t, code, "Timestamp", "Expected Timestamp field name")
 }
 
+func TestGenerateDateType(t *testing.T) {
+	spec := &openapi.Document{
+		OpenAPI: "3.1.0",
+		Info: &openapi.Info{
+			Title:   "Test",
+			Version: "1.0.0",
+		},
+		Components: &openapi.Components{
+			Schemas: map[string]*openapi.SchemaRef{
+				"Event": {
+					Value: &openapi.Schema{
+						Type: []string{"object"},
+						Properties: map[string]*openapi.SchemaRef{
+							"eventDate": {
+								Value: &openapi.Schema{
+									Type:   []string{"string"},
+									Format: "date",
+								},
+							},
+							"createdAt": {
+								Value: &openapi.Schema{
+									Type:   []string{"string"},
+									Format: "date-time",
+								},
+							},
+						},
+						Required: []string{"eventDate"},
+					},
+				},
+			},
+		},
+	}
+
+	gen := NewTypeGenerator(spec)
+	code, err := gen.Generate()
+	require.NoError(t, err, "Generate should not fail")
+
+	// Check both imports are present
+	assert.Contains(t, code, `"time"`, "Expected time import")
+	assert.Contains(t, code, `date "google.golang.org/genproto/googleapis/type/date"`, "Expected date import")
+
+	// Check date.Date field
+	assert.Contains(t, code, "date.Date", "Expected date.Date type in generated code")
+	assert.Contains(t, code, "EventDate", "Expected EventDate field name")
+
+	// Check time.Time field
+	assert.Contains(t, code, "time.Time", "Expected time.Time type in generated code")
+	assert.Contains(t, code, "CreatedAt", "Expected CreatedAt field name")
+}
+
 func TestToPascalCase(t *testing.T) {
 	tests := []struct {
 		input    string
@@ -373,6 +420,11 @@ func TestResolveType(t *testing.T) {
 			name:     "DateTime type",
 			schema:   &openapi.Schema{Type: []string{"string"}, Format: "date-time"},
 			expected: "time.Time",
+		},
+		{
+			name:     "Date type",
+			schema:   &openapi.Schema{Type: []string{"string"}, Format: "date"},
+			expected: "date.Date",
 		},
 		{
 			name:     "Nil schema",
