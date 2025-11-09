@@ -377,6 +377,95 @@ Generated code requires:
 6. **Testing**: Generate test stubs
 7. **Documentation**: Generate Markdown docs from spec
 
+## Testing Guidelines
+
+### When to Add Tests
+
+**IMPORTANT**: Tests should be considered and added **AFTER** implementing all changes, not before or during development.
+
+Once your implementation is complete, consider whether tests would provide actual value. Only add tests if they meaningfully verify:
+
+1. **Happy Paths**: Normal, expected use cases that demonstrate the feature works as intended
+2. **Logic Verification**: Core business logic and important behavior that must remain correct
+3. **Reasonable Edge Cases**: Boundary conditions, error handling, and important corner cases
+
+**Do NOT add tests for**:
+- Trivial getters/setters
+- Simple pass-through functions
+- Code that's unlikely to break or has minimal logic
+- Every possible permutation (focus on meaningful cases)
+
+### Testing Best Practices
+
+**Always use `testify/assert` and `testify/require` for all test assertions.**
+
+**NEVER use these standard Go testing methods:**
+- ❌ `t.Error()` or `t.Errorf()`
+- ❌ `t.Fatal()` or `t.Fatalf()`
+
+**Instead, use:**
+- ✅ `assert.Equal(t, expected, actual)` - For non-critical checks
+- ✅ `assert.NotNil(t, value)` - Verify non-nil values
+- ✅ `assert.NoError(t, err)` - Check for no errors
+- ✅ `assert.Contains(t, haystack, needle)` - String/slice contains
+- ✅ `assert.True(t, condition)` / `assert.False(t, condition)` - Boolean checks
+- ✅ `require.NoError(t, err)` - Critical checks that should stop test execution
+- ✅ `require.NotNil(t, value)` - Critical nil checks
+
+**Key Difference**:
+- Use `require.*` for critical checks where test cannot continue if assertion fails (e.g., nil pointer checks, fatal errors)
+- Use `assert.*` for non-critical checks where test can continue even if assertion fails
+
+### Example Test Structure
+
+```go
+func TestFeatureName(t *testing.T) {
+    // Setup
+    input := setupTestData()
+
+    // Execute
+    result, err := FeatureFunction(input)
+
+    // Assert - critical checks first (use require)
+    require.NoError(t, err, "Feature should not return error")
+    require.NotNil(t, result, "Result should not be nil")
+
+    // Assert - detailed checks (use assert)
+    assert.Equal(t, expectedValue, result.Field, "Field should match expected")
+    assert.Len(t, result.Items, 3, "Should have 3 items")
+    assert.Contains(t, result.Message, "success", "Message should contain success")
+}
+```
+
+### Running Tests
+
+```bash
+# Run all tests
+go test ./...
+
+# Run tests with coverage
+go test -v -race -coverprofile=coverage.out ./...
+
+# Run specific package tests
+go test -v ./pkg/generator/
+
+# Run specific test
+go test -v -run TestFeatureName ./pkg/generator/
+```
+
+### CI Integration
+
+All tests automatically run on:
+- Every pull request
+- Every push to main branch
+- Go version: 1.25.4
+
+The CI pipeline includes:
+- Unit tests with race detection
+- Coverage reporting
+- Linting with golangci-lint
+- Build verification
+
 ## Testing
 
 The generator has been tested with:
