@@ -56,7 +56,7 @@ func (g *TypeGenerator) Generate() (string, error) {
 			sb.WriteString("\t\"time\"\n")
 		}
 		if g.usesDate {
-			sb.WriteString("\n\tdate \"google.golang.org/genproto/googleapis/type/date\"\n")
+			sb.WriteString("\tdate \"google.golang.org/genproto/googleapis/type/date\"\n")
 		}
 		sb.WriteString(")\n\n")
 	}
