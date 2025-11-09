@@ -9,6 +9,7 @@ SpecWeaver automatically generates type-safe Go code from OpenAPI specifications
 - ✨ **Full OpenAPI 3.x Support** - Compatible with OpenAPI 3.0.x, 3.1.x, and 3.2.x
 - 🔧 **Custom Robust Parser** - No external OpenAPI library dependencies
 - 🎯 **Type-Safe Code** - Generates idiomatic Go structs with proper types
+- 🔐 **Authentication Support** - Automatic generation of auth middleware for all OpenAPI security schemes (Basic, Bearer, API Key, OAuth2, OIDC)
 - 🚀 **Production Ready** - Includes error handling, middleware, and best practices
 - 📝 **Documentation Preserved** - OpenAPI descriptions become Go comments
 - 🔄 **Schema References** - Properly resolves `$ref` to generate correct types

@@ -539,20 +539,34 @@ func (g *ServerGenerator) generateParamParsing(sb *strings.Builder, param *opena
 
 // generateRouter generates the router setup functions
 func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
+	hasSecuritySchemes := g.spec.Components != nil && g.spec.Components.SecuritySchemes != nil && len(g.spec.Components.SecuritySchemes) > 0
+
+	// Generate security scheme info map if needed
+	if hasSecuritySchemes {
+		g.generateSecuritySchemeInfoMap(sb)
+	}
+
 	// Generate ConfigureRouter function that works with any router
 	sb.WriteString("// ConfigureRouter configures the given router with all routes.\n")
 	sb.WriteString("// This function allows you to use any router that implements the router.Router interface.\n")
 	sb.WriteString("//\n")
+	sb.WriteString("// The authenticator parameter is optional. If nil, no authentication will be performed.\n")
+	sb.WriteString("// If provided, authentication will be enforced for routes that require it.\n")
+	sb.WriteString("//\n")
 	sb.WriteString("// Example with built-in router:\n")
 	sb.WriteString("//\n")
 	sb.WriteString("//\tr := router.NewRouter()\n")
-	sb.WriteString("//\tConfigureRouter(r, myServer)\n")
+	sb.WriteString("//\tConfigureRouter(r, myServer, myAuthenticator)\n")
 	sb.WriteString("//\n")
 	sb.WriteString("// Example with custom router:\n")
 	sb.WriteString("//\n")
 	sb.WriteString("//\tr := myCustomRouter.New() // Must implement router.Router interface\n")
-	sb.WriteString("//\tConfigureRouter(r, myServer)\n")
-	sb.WriteString("func ConfigureRouter(r router.Router, si Server) {\n")
+	sb.WriteString("//\tConfigureRouter(r, myServer, myAuthenticator)\n")
+	if hasSecuritySchemes {
+		sb.WriteString("func ConfigureRouter(r router.Router, si Server, authenticator Authenticator) {\n")
+	} else {
+		sb.WriteString("func ConfigureRouter(r router.Router, si Server) {\n")
+	}
 	sb.WriteString("\twrapper := &ServerWrapper{Handler: si}\n")
 	sb.WriteString("\n")
 
@@ -576,8 +590,16 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 				handlerName := generateHandlerName(method, path, op.OperationID)
 				adapterMethodName := "handle" + handlerName
 
-				sb.WriteString(fmt.Sprintf("\tr.%s(\"%s\", wrapper.%s)\n",
-					getRouterMethodName(method), routerPath, adapterMethodName))
+				// Check if this operation has security requirements
+				if hasSecuritySchemes && g.hasSecurityRequirements(op) {
+					// Wrap handler with auth middleware
+					sb.WriteString(fmt.Sprintf("\tr.%s(\"%s\", authMiddleware(authenticator, %s, securitySchemeInfoMap)(http.HandlerFunc(wrapper.%s)).ServeHTTP)\n",
+						getRouterMethodName(method), routerPath, g.generateSecurityRequirementsLiteral(op), adapterMethodName))
+				} else {
+					// No auth required
+					sb.WriteString(fmt.Sprintf("\tr.%s(\"%s\", wrapper.%s)\n",
+						getRouterMethodName(method), routerPath, adapterMethodName))
+				}
 			}
 		}
 	}
@@ -587,7 +609,13 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	// Generate NewRouter function for convenience (uses built-in router)
 	sb.WriteString("// NewRouter creates a new router with all routes configured using the built-in router.\n")
 	sb.WriteString("// For using a custom router, use ConfigureRouter instead.\n")
-	sb.WriteString("func NewRouter(si Server) *router.Mux {\n")
+	if hasSecuritySchemes {
+		sb.WriteString("//\n")
+		sb.WriteString("// The authenticator parameter is optional. If nil, no authentication will be performed.\n")
+		sb.WriteString("func NewRouter(si Server, authenticator Authenticator) *router.Mux {\n")
+	} else {
+		sb.WriteString("func NewRouter(si Server) *router.Mux {\n")
+	}
 	sb.WriteString("\tr := router.NewRouter()\n")
 	sb.WriteString("\n")
 	sb.WriteString("\t// Default middleware\n")
@@ -596,9 +624,109 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	sb.WriteString("\tr.Use(router.RequestID)\n")
 	sb.WriteString("\tr.Use(router.RealIP)\n")
 	sb.WriteString("\n")
-	sb.WriteString("\tConfigureRouter(r, si)\n")
+	if hasSecuritySchemes {
+		sb.WriteString("\tConfigureRouter(r, si, authenticator)\n")
+	} else {
+		sb.WriteString("\tConfigureRouter(r, si)\n")
+	}
 	sb.WriteString("\treturn r\n")
 	sb.WriteString("}\n\n")
+}
+
+// generateSecuritySchemeInfoMap generates the map of security scheme information
+func (g *ServerGenerator) generateSecuritySchemeInfoMap(sb *strings.Builder) {
+	sb.WriteString("// securitySchemeInfoMap contains information about all security schemes\n")
+	sb.WriteString("var securitySchemeInfoMap = map[string]*SecuritySchemeInfo{\n")
+
+	if g.spec.Components != nil && g.spec.Components.SecuritySchemes != nil {
+		// Get security scheme names in sorted order
+		schemes := make([]string, 0, len(g.spec.Components.SecuritySchemes))
+		for name := range g.spec.Components.SecuritySchemes {
+			schemes = append(schemes, name)
+		}
+		sort.Strings(schemes)
+
+		for _, name := range schemes {
+			scheme := g.spec.Components.SecuritySchemes[name]
+			if scheme == nil {
+				continue
+			}
+
+			sb.WriteString(fmt.Sprintf("\t\"%s\": {\n", name))
+			sb.WriteString(fmt.Sprintf("\t\tType:   \"%s\",\n", scheme.Type))
+			if scheme.Scheme != "" {
+				sb.WriteString(fmt.Sprintf("\t\tScheme: \"%s\",\n", scheme.Scheme))
+			}
+			if scheme.In != "" {
+				sb.WriteString(fmt.Sprintf("\t\tIn:     \"%s\",\n", scheme.In))
+			}
+			if scheme.Name != "" {
+				sb.WriteString(fmt.Sprintf("\t\tName:   \"%s\",\n", scheme.Name))
+			}
+			sb.WriteString("\t},\n")
+		}
+	}
+
+	sb.WriteString("}\n\n")
+}
+
+// hasSecurityRequirements checks if an operation has security requirements
+func (g *ServerGenerator) hasSecurityRequirements(op *openapi.Operation) bool {
+	// Check operation-level security
+	if op.Security != nil && len(op.Security) > 0 {
+		return true
+	}
+
+	// Check global security (if operation doesn't override)
+	if op.Security == nil && g.spec.Security != nil && len(g.spec.Security) > 0 {
+		return true
+	}
+
+	return false
+}
+
+// generateSecurityRequirementsLiteral generates a Go literal for security requirements
+func (g *ServerGenerator) generateSecurityRequirementsLiteral(op *openapi.Operation) string {
+	var sb strings.Builder
+
+	// Use operation-level security if present, otherwise use global
+	securityReqs := op.Security
+	if securityReqs == nil {
+		securityReqs = g.spec.Security
+	}
+
+	sb.WriteString("[]map[string][]string{\n")
+	for _, req := range securityReqs {
+		sb.WriteString("\t\t{\n")
+
+		// Get keys in sorted order for determinism
+		keys := make([]string, 0, len(req))
+		for k := range req {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+
+		for _, schemeName := range keys {
+			scopes := req[schemeName]
+			sb.WriteString(fmt.Sprintf("\t\t\t\"%s\": ", schemeName))
+			if len(scopes) == 0 {
+				sb.WriteString("[]string{},\n")
+			} else {
+				sb.WriteString("[]string{")
+				for i, scope := range scopes {
+					if i > 0 {
+						sb.WriteString(", ")
+					}
+					sb.WriteString(fmt.Sprintf("\"%s\"", scope))
+				}
+				sb.WriteString("},\n")
+			}
+		}
+		sb.WriteString("\t\t},\n")
+	}
+	sb.WriteString("\t}")
+
+	return sb.String()
 }
 
 // generateHelpers generates helper functions for request/response handling

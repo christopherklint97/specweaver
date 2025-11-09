@@ -37,7 +37,7 @@ func NewGenerator(spec *openapi.Document, config Config) *Generator {
 	}
 }
 
-// Generate generates all code (types and server)
+// Generate generates all code (types, server, and auth)
 func (g *Generator) Generate() error {
 	// Create output directory
 	if err := os.MkdirAll(g.outputDir, 0755); err != nil {
@@ -54,9 +54,17 @@ func (g *Generator) Generate() error {
 		return fmt.Errorf("failed to generate server: %w", err)
 	}
 
+	// Generate auth (if security schemes are defined)
+	if err := g.generateAuth(); err != nil {
+		return fmt.Errorf("failed to generate auth: %w", err)
+	}
+
 	fmt.Printf("✓ Code generated successfully in %s/\n", g.outputDir)
 	fmt.Printf("  - types.go: Type definitions\n")
 	fmt.Printf("  - server.go: Server handlers and router\n")
+	if g.hasSecuritySchemes() {
+		fmt.Printf("  - auth.go: Authentication middleware and types\n")
+	}
 
 	return nil
 }
@@ -91,4 +99,32 @@ func (g *Generator) generateServer() error {
 	}
 
 	return nil
+}
+
+// generateAuth generates authentication code
+func (g *Generator) generateAuth() error {
+	// Only generate auth.go if there are security schemes
+	if !g.hasSecuritySchemes() {
+		return nil
+	}
+
+	authGen := NewAuthGenerator(g.spec)
+	code, err := authGen.Generate()
+	if err != nil {
+		return err
+	}
+
+	outputPath := filepath.Join(g.outputDir, "auth.go")
+	if err := os.WriteFile(outputPath, []byte(code), 0644); err != nil {
+		return fmt.Errorf("failed to write auth file: %w", err)
+	}
+
+	return nil
+}
+
+// hasSecuritySchemes checks if the spec defines any security schemes
+func (g *Generator) hasSecuritySchemes() bool {
+	return g.spec.Components != nil &&
+		g.spec.Components.SecuritySchemes != nil &&
+		len(g.spec.Components.SecuritySchemes) > 0
 }
