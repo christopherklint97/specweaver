@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 
 	"github.com/christopherklint97/specweaver/pkg/openapi"
@@ -34,8 +35,15 @@ func (g *TypeGenerator) Generate() (string, error) {
 		return sb.String(), nil
 	}
 
-	// Generate types for all schemas in components
-	for name, schemaRef := range g.spec.Components.Schemas {
+	// Generate types for all schemas in components (in sorted order for determinism)
+	schemaNames := make([]string, 0, len(g.spec.Components.Schemas))
+	for name := range g.spec.Components.Schemas {
+		schemaNames = append(schemaNames, name)
+	}
+	sort.Strings(schemaNames)
+
+	for _, name := range schemaNames {
+		schemaRef := g.spec.Components.Schemas[name]
 		if err := g.generateType(&sb, name, schemaRef.Value); err != nil {
 			return "", fmt.Errorf("failed to generate type for %s: %w", name, err)
 		}
@@ -95,7 +103,15 @@ func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema 
 	sb.WriteString(fmt.Sprintf("type %s struct {\n", name))
 
 	if schema.Properties != nil {
-		for propName, propRef := range schema.Properties {
+		// Sort property names for deterministic output
+		propNames := make([]string, 0, len(schema.Properties))
+		for propName := range schema.Properties {
+			propNames = append(propNames, propName)
+		}
+		sort.Strings(propNames)
+
+		for _, propName := range propNames {
+			propRef := schema.Properties[propName]
 			propSchema := propRef.Value
 			fieldName := toGoFieldName(propName)
 
