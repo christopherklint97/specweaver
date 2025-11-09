@@ -72,11 +72,13 @@ specweaver/
   - Resolves schema references (`$ref`)
   - Maps OpenAPI types to idiomatic Go types:
     - `string` with `format: date-time` → `time.Time`
+    - `string` with `format: date` → `date.Date` (from `google.golang.org/genproto/googleapis/type/date`)
     - `integer` with `format: int64` → `int64`
     - `number` → `float64` (or `float32` with `format: float`)
   - Adds JSON tags with `omitempty` for optional fields
   - Uses pointers for optional non-primitive types
   - Preserves descriptions as Go comments
+  - Conditionally imports packages based on types used (time, date)
 
 **Naming Conventions**:
 - Converts snake_case, kebab-case, and camelCase to PascalCase
@@ -405,7 +407,8 @@ Generated code requires:
 - `encoding/json` - JSON serialization
 - `net/http` - HTTP server
 - `io` - Request body reading
-- `time` - DateTime handling
+- `time` - DateTime handling (when `format: date-time` is used)
+- `google.golang.org/genproto/googleapis/type/date` - Date handling (when `format: date` is used)
 - `github.com/christopherklint97/specweaver/pkg/router` - Custom HTTP router (no external dependencies)
 
 ## Development History
