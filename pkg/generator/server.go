@@ -146,7 +146,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 
 					if param.In == "path" {
 						fieldName := toPascalCase(param.Name)
-						fieldType := g.getParamType(param)
+						fieldType := getParamType(param)
 						if param.Description != "" {
 							sb.WriteString(fmt.Sprintf("\t// %s\n", param.Description))
 						}
@@ -164,7 +164,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 
 					if param.In == "query" {
 						fieldName := toPascalCase(param.Name)
-						fieldType := g.getParamType(param)
+						fieldType := getParamType(param)
 
 						// Query params are optional by default
 						if !param.Required && !strings.HasPrefix(fieldType, "*") {
@@ -184,7 +184,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 			if op.RequestBody != nil {
 				content := op.RequestBody.Content
 				if jsonContent, ok := content["application/json"]; ok && jsonContent.Schema != nil {
-					bodyType := g.resolveSchemaType(jsonContent.Schema)
+					bodyType := resolveSchemaType(jsonContent.Schema)
 					sb.WriteString("\t// Request body\n")
 					sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 				}
@@ -263,7 +263,7 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 					hasBody := false
 					if response.Content != nil {
 						if jsonContent, ok := response.Content["application/json"]; ok && jsonContent.Schema != nil {
-							bodyType := g.resolveSchemaType(jsonContent.Schema)
+							bodyType := resolveSchemaType(jsonContent.Schema)
 							sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 							hasBody = true
 						}
@@ -442,7 +442,7 @@ func (g *ServerGenerator) generateAdapterMethod(sb *strings.Builder, handlerName
 
 // generateParamParsing generates code to parse a parameter
 func (g *ServerGenerator) generateParamParsing(sb *strings.Builder, param *openapi.Parameter, fieldName string, isPath bool) {
-	paramType := g.getParamType(param)
+	paramType := getParamType(param)
 	paramName := param.Name
 
 	// Get parameter value
@@ -793,98 +793,6 @@ func (g *ServerGenerator) generateHelpers(sb *strings.Builder) {
 	sb.WriteString("\t}\n")
 	sb.WriteString("\treturn json.Unmarshal(body, v)\n")
 	sb.WriteString("}\n\n")
-}
-
-// Helper functions
-
-// getParamType returns the Go type for a parameter
-func (g *ServerGenerator) getParamType(param *openapi.Parameter) string {
-	if param.Schema == nil || param.Schema.Value == nil {
-		return "string"
-	}
-
-	schema := param.Schema.Value
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		} else if schema.Format == "int32" {
-			return "int32"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	case "string":
-		return "string"
-	default:
-		return "string"
-	}
-}
-
-// resolveSchemaType resolves a schema reference to a Go type
-func (g *ServerGenerator) resolveSchemaType(schemaRef *openapi.SchemaRef) string {
-	if schemaRef == nil {
-		return "any"
-	}
-
-	// If this is a reference, extract the type name
-	if schemaRef.Ref != "" {
-		parts := strings.Split(schemaRef.Ref, "/")
-		if len(parts) > 0 {
-			typeName := parts[len(parts)-1]
-			return toPascalCase(typeName)
-		}
-	}
-
-	// Otherwise resolve from schema
-	if schemaRef.Value != nil {
-		return g.resolveSchemaTypeFromValue(schemaRef.Value)
-	}
-
-	return "any"
-}
-
-// resolveSchemaTypeFromValue resolves the Go type from a schema value
-func (g *ServerGenerator) resolveSchemaTypeFromValue(schema *openapi.Schema) string {
-	if schema == nil {
-		return "any"
-	}
-
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "array":
-		if schema.Items != nil {
-			itemType := g.resolveSchemaType(schema.Items)
-			return "[]" + itemType
-		}
-		return "[]any"
-	case "object":
-		return "map[string]any"
-	case "string":
-		return "string"
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	default:
-		return "any"
-	}
 }
 
 // parseStatusCode parses a status code string to int

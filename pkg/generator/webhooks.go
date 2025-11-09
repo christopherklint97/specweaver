@@ -101,7 +101,7 @@ func (g *WebhookGenerator) generateWebhookRequestTypes(sb *strings.Builder) erro
 
 					if param.In == "header" {
 						fieldName := toPascalCase(param.Name)
-						fieldType := g.getParamType(param)
+						fieldType := getParamType(param)
 
 						// Headers are optional by default
 						if !param.Required && !strings.HasPrefix(fieldType, "*") {
@@ -121,7 +121,7 @@ func (g *WebhookGenerator) generateWebhookRequestTypes(sb *strings.Builder) erro
 			if op.RequestBody != nil {
 				content := op.RequestBody.Content
 				if jsonContent, ok := content["application/json"]; ok && jsonContent.Schema != nil {
-					bodyType := g.resolveSchemaType(jsonContent.Schema)
+					bodyType := resolveSchemaType(jsonContent.Schema)
 					sb.WriteString("\t// Request body\n")
 					sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 				}
@@ -195,7 +195,7 @@ func (g *WebhookGenerator) generateWebhookResponseTypes(sb *strings.Builder) err
 					hasBody := false
 					if response.Content != nil {
 						if jsonContent, ok := response.Content["application/json"]; ok && jsonContent.Schema != nil {
-							bodyType := g.resolveSchemaType(jsonContent.Schema)
+							bodyType := resolveSchemaType(jsonContent.Schema)
 							sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 							hasBody = true
 						}
@@ -437,8 +437,6 @@ func (g *WebhookGenerator) generateWebhookSenderMethod(sb *strings.Builder, hand
 	sb.WriteString("}\n\n")
 }
 
-// Helper functions
-
 // generateWebhookName creates a webhook function name
 func generateWebhookName(webhookName, method, operationID string) string {
 	if operationID != "" {
@@ -448,94 +446,4 @@ func generateWebhookName(webhookName, method, operationID string) string {
 	// Generate from webhook name and method
 	name := "send_" + webhookName + "_" + strings.ToLower(method)
 	return toPascalCase(name)
-}
-
-// getParamType returns the Go type for a parameter (reused from server.go)
-func (g *WebhookGenerator) getParamType(param *openapi.Parameter) string {
-	if param.Schema == nil || param.Schema.Value == nil {
-		return "string"
-	}
-
-	schema := param.Schema.Value
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		} else if schema.Format == "int32" {
-			return "int32"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	case "string":
-		return "string"
-	default:
-		return "string"
-	}
-}
-
-// resolveSchemaType resolves a schema reference to a Go type (reused from server.go)
-func (g *WebhookGenerator) resolveSchemaType(schemaRef *openapi.SchemaRef) string {
-	if schemaRef == nil {
-		return "any"
-	}
-
-	// If this is a reference, extract the type name
-	if schemaRef.Ref != "" {
-		parts := strings.Split(schemaRef.Ref, "/")
-		if len(parts) > 0 {
-			typeName := parts[len(parts)-1]
-			return toPascalCase(typeName)
-		}
-	}
-
-	// Otherwise resolve from schema
-	if schemaRef.Value != nil {
-		return g.resolveSchemaTypeFromValue(schemaRef.Value)
-	}
-
-	return "any"
-}
-
-// resolveSchemaTypeFromValue resolves the Go type from a schema value (reused from server.go)
-func (g *WebhookGenerator) resolveSchemaTypeFromValue(schema *openapi.Schema) string {
-	if schema == nil {
-		return "any"
-	}
-
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "array":
-		if schema.Items != nil {
-			itemType := g.resolveSchemaType(schema.Items)
-			return "[]" + itemType
-		}
-		return "[]any"
-	case "object":
-		return "map[string]any"
-	case "string":
-		return "string"
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	default:
-		return "any"
-	}
 }
