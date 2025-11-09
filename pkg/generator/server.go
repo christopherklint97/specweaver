@@ -525,25 +525,28 @@ func (g *ServerGenerator) generateParamParsing(sb *strings.Builder, param *opena
 	sb.WriteString("\n")
 }
 
-// generateRouter generates the router setup function
+// generateRouter generates the router setup functions
 func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
-	sb.WriteString("// NewRouter creates a new router with all routes configured\n")
-	sb.WriteString("func NewRouter(si Server) *router.Mux {\n")
-	sb.WriteString("\tr := router.NewRouter()\n")
-	sb.WriteString("\n")
-	sb.WriteString("\t// Middleware\n")
-	sb.WriteString("\tr.Use(router.Logger)\n")
-	sb.WriteString("\tr.Use(router.Recoverer)\n")
-	sb.WriteString("\tr.Use(router.RequestID)\n")
-	sb.WriteString("\tr.Use(router.RealIP)\n")
-	sb.WriteString("\n")
-
+	// Generate ConfigureRouter function that works with any router
+	sb.WriteString("// ConfigureRouter configures the given router with all routes.\n")
+	sb.WriteString("// This function allows you to use any router that implements the router.Router interface.\n")
+	sb.WriteString("//\n")
+	sb.WriteString("// Example with built-in router:\n")
+	sb.WriteString("//\n")
+	sb.WriteString("//\tr := router.NewRouter()\n")
+	sb.WriteString("//\tConfigureRouter(r, myServer)\n")
+	sb.WriteString("//\n")
+	sb.WriteString("// Example with custom router:\n")
+	sb.WriteString("//\n")
+	sb.WriteString("//\tr := myCustomRouter.New() // Must implement router.Router interface\n")
+	sb.WriteString("//\tConfigureRouter(r, myServer)\n")
+	sb.WriteString("func ConfigureRouter(r router.Router, si Server) {\n")
 	sb.WriteString("\twrapper := &ServerWrapper{Handler: si}\n")
 	sb.WriteString("\n")
 
 	if g.spec.Paths != nil {
 		for path, pathItem := range g.spec.Paths {
-			chiPath := convertToChiPath(path)
+			routerPath := convertToRouterPath(path)
 
 			operations := map[string]*openapi.Operation{
 				http.MethodGet:    pathItem.Get,
@@ -562,12 +565,27 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 				adapterMethodName := "handle" + handlerName
 
 				sb.WriteString(fmt.Sprintf("\tr.%s(\"%s\", wrapper.%s)\n",
-					getRouterMethodName(method), chiPath, adapterMethodName))
+					getRouterMethodName(method), routerPath, adapterMethodName))
 			}
 		}
 	}
 
-	sb.WriteString("\n\treturn r\n")
+	sb.WriteString("}\n\n")
+
+	// Generate NewRouter function for convenience (uses built-in router)
+	sb.WriteString("// NewRouter creates a new router with all routes configured using the built-in router.\n")
+	sb.WriteString("// For using a custom router, use ConfigureRouter instead.\n")
+	sb.WriteString("func NewRouter(si Server) *router.Mux {\n")
+	sb.WriteString("\tr := router.NewRouter()\n")
+	sb.WriteString("\n")
+	sb.WriteString("\t// Default middleware\n")
+	sb.WriteString("\tr.Use(router.Logger)\n")
+	sb.WriteString("\tr.Use(router.Recoverer)\n")
+	sb.WriteString("\tr.Use(router.RequestID)\n")
+	sb.WriteString("\tr.Use(router.RealIP)\n")
+	sb.WriteString("\n")
+	sb.WriteString("\tConfigureRouter(r, si)\n")
+	sb.WriteString("\treturn r\n")
 	sb.WriteString("}\n\n")
 }
 
@@ -754,8 +772,8 @@ func generateHandlerName(method, path, operationID string) string {
 	return toPascalCase(name)
 }
 
-// convertToChiPath converts OpenAPI path to router path format
-func convertToChiPath(path string) string {
+// convertToRouterPath converts OpenAPI path to router path format
+func convertToRouterPath(path string) string {
 	// Both OpenAPI and our router use {param} format
 	return path
 }

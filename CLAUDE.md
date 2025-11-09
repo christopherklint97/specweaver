@@ -38,10 +38,15 @@ specweaver/
 │   ├── server/              # Example server implementation
 │   │   ├── main.go          # Reference implementation
 │   │   └── api/             # Generated code (copied for example)
-│   └── library/             # Example of using SpecWeaver as a library
-│       ├── main.go          # Library usage examples
-│       ├── go.mod           # Module file for the example
-│       └── README.md        # Library usage documentation
+│   ├── library/             # Example of using SpecWeaver as a library
+│   │   ├── main.go          # Library usage examples
+│   │   ├── go.mod           # Module file for the example
+│   │   └── README.md        # Library usage documentation
+│   └── custom-router/       # Example using custom router (chi)
+│       ├── main.go          # Server using chi router
+│       ├── chi_adapter.go   # Chi router adapter
+│       ├── go.mod           # Module file
+│       └── README.md        # Custom router documentation
 ├── generated/               # Default output directory
 ├── go.mod
 └── README.md
@@ -79,18 +84,24 @@ specweaver/
 - Example: `pet-status` → `PetStatus`, `birthDate` → `BirthDate`
 
 #### 3. Router (`pkg/router/`)
-- **Purpose**: Custom lightweight HTTP router
-- **Features**:
+- **Purpose**: Provide a default HTTP router and interface for custom routers
+- **Built-in Router Features**:
   - HTTP method routing (GET, POST, PUT, DELETE, PATCH, etc.)
   - Path parameter support (`/pets/{id}`)
   - Middleware support
   - Zero external dependencies
-  - Compatible interface for easy migration
-- **Middleware**:
+  - Lightweight and fast
+- **Built-in Middleware**:
   - `Logger`: Request logging
   - `Recoverer`: Panic recovery
   - `RequestID`: Request ID generation
   - `RealIP`: Real IP extraction from headers
+- **Custom Router Support**:
+  - Defines `router.Router` interface for pluggable routers
+  - Any router implementing the interface can be used
+  - Compatible with popular routers (chi, gorilla/mux, httprouter, etc.)
+  - URL parameters must be stored in context using `router.URLParamKey`
+  - See `examples/custom-router/` for implementation examples
 
 #### 4. Server Generator (`pkg/generator/server.go`)
 - **Purpose**: Generate HTTP server code with clean, testable patterns
@@ -115,7 +126,8 @@ specweaver/
     - Errors default to 500 unless HTTPError is used
   - **Server Interface**: Clean business logic methods
   - **ServerWrapper**: HTTP adapter that bridges to handler methods
-  - **NewRouter()**: Function to create configured router
+  - **ConfigureRouter(r, si)**: Configures any router with generated routes
+  - **NewRouter(si)**: Convenience function using built-in router
   - Helper functions:
     - `WriteJSON()`: Write JSON responses
     - `WriteResponse()`: Write typed response (handles status codes)
@@ -336,11 +348,40 @@ func (s *MyServer) GetPetById(ctx context.Context, req api.GetPetByIdRequest) (a
 
 ### 3. Start the Server
 
+#### Using the Built-in Router
+
 ```go
 server := &MyServer{}
 router := api.NewRouter(server)
 http.ListenAndServe(":8080", router)
 ```
+
+#### Using a Custom Router
+
+SpecWeaver supports any router that implements the `router.Router` interface:
+
+```go
+// Create your custom router (e.g., chi)
+customRouter := NewChiAdapter()
+
+// Add your middleware
+customRouter.Use(middleware.Logger)
+customRouter.Use(ChiURLParamMiddleware) // Required for URL params
+
+// Configure with SpecWeaver routes
+api.ConfigureRouter(customRouter, server)
+
+// Start server
+http.ListenAndServe(":8080", customRouter)
+```
+
+**Custom Router Requirements:**
+1. Implement `router.Router` interface (http.Handler + routing methods)
+2. Store URL parameters in context using `router.URLParamKey`
+3. Support standard HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD)
+4. Support middleware via `Use` method
+
+See `examples/custom-router/` for a complete chi router implementation.
 
 ### Benefits of the New Pattern
 

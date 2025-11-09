@@ -14,6 +14,7 @@ SpecWeaver automatically generates type-safe Go code from OpenAPI specifications
 - 🔄 **Schema References** - Properly resolves `$ref` to generate correct types
 - 🎨 **Idiomatic Go** - Follows Go conventions and best practices (uses `any` instead of `interface{}`)
 - ⚡ **Zero Dependencies** - Custom lightweight router, no external dependencies
+- 🔌 **Custom Router Support** - Use any router (chi, gorilla/mux, etc.) via pluggable interface
 - 📄 **Format Support** - Works with both YAML and JSON specifications
 
 ## Installation
@@ -181,6 +182,43 @@ func main() {
 
 See [examples/library/](examples/library/) for complete examples and integration patterns.
 
+### Custom Router Support
+
+SpecWeaver supports using any HTTP router that implements the `router.Router` interface. This allows you to use popular routers like chi, gorilla/mux, or httprouter with SpecWeaver-generated code.
+
+#### Using the Built-in Router
+
+```go
+server := &MyServer{}
+router := api.NewRouter(server) // Uses built-in router with default middleware
+http.ListenAndServe(":8080", router)
+```
+
+#### Using a Custom Router
+
+```go
+// Create your custom router
+customRouter := NewChiAdapter() // Adapter for chi router
+
+// Add your middleware
+customRouter.Use(middleware.Logger)
+customRouter.Use(ChiURLParamMiddleware) // Required for URL parameter compatibility
+
+// Configure with SpecWeaver routes
+api.ConfigureRouter(customRouter, server)
+
+// Start server
+http.ListenAndServe(":8080", customRouter)
+```
+
+**Requirements for custom routers:**
+1. Implement the `router.Router` interface
+2. Store URL parameters in context using `router.URLParamKey`
+3. Support standard HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD)
+4. Support middleware via `Use` method
+
+See [examples/custom-router/](examples/custom-router/) for a complete chi router implementation and adapter example.
+
 ## Generated Code
 
 SpecWeaver generates two main files:
@@ -263,6 +301,26 @@ This example demonstrates:
 - Advanced usage with parser and generator
 - Accessing the parsed OpenAPI spec
 - Integration patterns for build tools and CI/CD
+
+### Custom Router Example
+
+See `examples/custom-router/` for a complete example of using a custom router (chi) with SpecWeaver:
+
+```bash
+# Run the custom router example
+cd examples/custom-router
+go run main.go
+
+# Test the API
+curl http://localhost:8080/pets
+```
+
+This example demonstrates:
+- Creating an adapter for the chi router
+- Implementing the `router.Router` interface
+- URL parameter compatibility middleware
+- Using chi-specific middleware with SpecWeaver
+- Configuring routes with `ConfigureRouter`
 
 ## Type Mapping
 
