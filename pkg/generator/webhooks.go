@@ -23,7 +23,7 @@ func NewWebhookGenerator(spec *openapi.Document) *WebhookGenerator {
 // Generate generates webhook client code
 func (g *WebhookGenerator) Generate() (string, error) {
 	// If no webhooks, return empty
-	if g.spec.Webhooks == nil || len(g.spec.Webhooks) == 0 {
+	if len(g.spec.Webhooks) == 0 {
 		return "", nil
 	}
 
