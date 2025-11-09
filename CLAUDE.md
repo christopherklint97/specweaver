@@ -32,12 +32,17 @@ specweaver/
 │   ├── generator/           # Code generators
 │   │   ├── generator.go     # Main generator coordinator
 │   │   ├── types.go         # Type/struct generation
-│   │   └── server.go        # Server code generation
+│   │   ├── server.go        # Server code generation
+│   │   └── auth.go          # Authentication code generation
 ├── examples/
 │   ├── petstore.yaml        # Example OpenAPI spec
+│   ├── auth-example.yaml    # Example with all authentication types
 │   ├── server/              # Example server implementation
 │   │   ├── main.go          # Reference implementation
 │   │   └── api/             # Generated code (copied for example)
+│   ├── auth-server/         # Example with authentication
+│   │   ├── main.go          # Auth example implementation
+│   │   └── api/             # Generated code with auth
 │   ├── library/             # Example of using SpecWeaver as a library
 │   │   ├── main.go          # Library usage examples
 │   │   ├── go.mod           # Module file for the example
@@ -136,22 +141,52 @@ specweaver/
     - `WriteError()`: Write error responses
     - `ReadJSON()`: Parse JSON request bodies
 - **Middleware**: Includes logging, recovery, request ID, and real IP
+- **Authentication**: Automatic integration of security middleware based on OpenAPI security schemes
 
-#### 5. Main Generator (`pkg/generator/generator.go`)
+#### 5. Authentication Generator (`pkg/generator/auth.go`)
+- **Purpose**: Generate authentication middleware and types from OpenAPI security schemes
+- **Supported Authentication Types**:
+  - **HTTP Basic Auth** (`http` + `scheme: basic`): Username/password authentication
+  - **HTTP Bearer Token** (`http` + `scheme: bearer`): JWT/OAuth2 bearer tokens
+  - **API Key in Header** (`apiKey` + `in: header`): Custom header authentication
+  - **API Key in Query** (`apiKey` + `in: query`): Query parameter authentication
+  - **API Key in Cookie** (`apiKey` + `in: cookie`): Cookie-based authentication
+  - **OAuth 2.0** (`oauth2`): Full OAuth2 flow with scope support
+  - **OpenID Connect** (`openIdConnect`): OIDC authentication
+- **Generated Components**:
+  - **Credential Types**: Structs for each auth type (BasicAuthCredentials, BearerTokenCredentials, etc.)
+  - **SecurityContext**: Holds authenticated principal and metadata
+  - **Authenticator Interface**: User-implemented interface with methods for each security scheme
+  - **Auth Middleware**: Automatic credential extraction and validation
+  - **Context Helpers**: `GetSecurityContext(ctx)` to access auth info in handlers
+- **Features**:
+  - Automatic credential extraction from headers, query params, or cookies
+  - Support for multiple security requirements (OR logic)
+  - Support for combined requirements (AND logic within a requirement)
+  - Per-operation security overrides
+  - Global security defaults
+  - OAuth2 scope validation support
+- **Integration**:
+  - Automatically wraps routes that have security requirements
+  - No changes needed for public endpoints (no security requirements)
+  - Generated `Authenticator` interface must be implemented by the user
+  - Middleware calls appropriate authenticator method based on scheme type
+
+#### 6. Main Generator (`pkg/generator/generator.go`)
 - **Purpose**: Coordinate the generation process
 - **Responsibilities**:
   - Create output directory
-  - Orchestrate type and server generation
+  - Orchestrate type, server, and auth generation
   - Write generated code to files
 
-#### 6. CLI (`cmd/specweaver/main.go`)
+#### 7. CLI (`cmd/specweaver/main.go`)
 - **Flags**:
   - `-spec`: Path to OpenAPI spec file (required)
   - `-output`: Output directory (default: `./generated`)
   - `-package`: Package name (default: `api`)
   - `-version`: Show version information
 
-#### 7. Public API (`specweaver.go`)
+#### 8. Public API (`specweaver.go`)
 - **Purpose**: Provide a clean, high-level API for library usage
 - **Features**:
   - Simple one-function generation with `Generate()`

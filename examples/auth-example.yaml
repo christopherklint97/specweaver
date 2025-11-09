@@ -1,0 +1,428 @@
+openapi: 3.1.0
+info:
+  title: Auth Example API
+  version: 1.0.0
+  description: Example API demonstrating all authentication types supported by SpecWeaver
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    # HTTP Basic Auth
+    basicAuth:
+      type: http
+      scheme: basic
+      description: HTTP Basic Authentication
+
+    # HTTP Bearer Token (JWT)
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: JWT Bearer token authentication
+
+    # API Key in Header
+    apiKeyHeader:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API Key in custom header
+
+    # API Key in Query
+    apiKeyQuery:
+      type: apiKey
+      in: query
+      name: api_key
+      description: API Key in query parameter
+
+    # API Key in Cookie
+    apiKeyCookie:
+      type: apiKey
+      in: cookie
+      name: session_id
+      description: API Key in cookie
+
+    # OAuth 2.0
+    oauth2Auth:
+      type: oauth2
+      description: OAuth 2.0 authentication
+      flows:
+        authorizationCode:
+          authorizationUrl: https://example.com/oauth/authorize
+          tokenUrl: https://example.com/oauth/token
+          scopes:
+            read: Grants read access
+            write: Grants write access
+            admin: Grants admin access
+
+    # OpenID Connect
+    openIdAuth:
+      type: openIdConnect
+      openIdConnectUrl: https://example.com/.well-known/openid-configuration
+      description: OpenID Connect authentication
+
+  schemas:
+    User:
+      type: object
+      required:
+        - id
+        - username
+        - email
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: User ID
+        username:
+          type: string
+          description: Username
+        email:
+          type: string
+          format: email
+          description: Email address
+        role:
+          type: string
+          enum:
+            - user
+            - admin
+          description: User role
+
+    Resource:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: integer
+          format: int64
+          description: Resource ID
+        name:
+          type: string
+          description: Resource name
+        ownerId:
+          type: integer
+          format: int64
+          description: Owner user ID
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error type
+        message:
+          type: string
+          description: Detailed error message
+
+# Global security requirement (applies to all operations unless overridden)
+security:
+  - bearerAuth: []
+
+paths:
+  # Public endpoint (no authentication)
+  /public/health:
+    get:
+      operationId: getHealth
+      summary: Health check
+      description: Public health check endpoint
+      security: []  # Override global security - no auth required
+      responses:
+        '200':
+          description: Health status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+
+  # Bearer auth (global default)
+  /users/me:
+    get:
+      operationId: getCurrentUser
+      summary: Get current user
+      description: Returns the currently authenticated user (uses global bearer auth)
+      responses:
+        '200':
+          description: Current user
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Basic auth
+  /admin/users:
+    get:
+      operationId: listUsers
+      summary: List all users
+      description: Admin endpoint using basic auth
+      security:
+        - basicAuth: []
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # API Key in header
+  /resources:
+    get:
+      operationId: listResources
+      summary: List resources
+      description: List resources using API key in header
+      security:
+        - apiKeyHeader: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            format: int32
+            default: 20
+      responses:
+        '200':
+          description: List of resources
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Resource'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    post:
+      operationId: createResource
+      summary: Create resource
+      description: Create a new resource using API key in header
+      security:
+        - apiKeyHeader: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - name
+              properties:
+                name:
+                  type: string
+      responses:
+        '201':
+          description: Resource created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # API Key in query
+  /legacy/data:
+    get:
+      operationId: getLegacyData
+      summary: Get legacy data
+      description: Legacy endpoint using API key in query parameter
+      security:
+        - apiKeyQuery: []
+      responses:
+        '200':
+          description: Legacy data
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # OAuth 2.0 with scopes
+  /resources/{resourceId}:
+    get:
+      operationId: getResource
+      summary: Get resource
+      description: Get resource details (requires read scope)
+      security:
+        - oauth2Auth: [read]
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '200':
+          description: Resource details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    put:
+      operationId: updateResource
+      summary: Update resource
+      description: Update resource (requires write scope)
+      security:
+        - oauth2Auth: [write]
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                name:
+                  type: string
+      responses:
+        '200':
+          description: Resource updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Resource'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+    delete:
+      operationId: deleteResource
+      summary: Delete resource
+      description: Delete resource (requires admin scope)
+      security:
+        - oauth2Auth: [admin]
+      parameters:
+        - name: resourceId
+          in: path
+          required: true
+          schema:
+            type: integer
+            format: int64
+      responses:
+        '204':
+          description: Resource deleted
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # OpenID Connect
+  /profile:
+    get:
+      operationId: getProfile
+      summary: Get user profile
+      description: Get user profile using OpenID Connect
+      security:
+        - openIdAuth: []
+      responses:
+        '200':
+          description: User profile
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  # Multiple auth options (OR logic)
+  /flexible:
+    get:
+      operationId: getFlexible
+      summary: Flexible authentication
+      description: Accepts either bearer token OR API key in header
+      security:
+        - bearerAuth: []
+        - apiKeyHeader: []
+      responses:
+        '200':
+          description: Success
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  message:
+                    type: string
+        '401':
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'

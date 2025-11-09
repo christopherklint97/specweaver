@@ -456,3 +456,253 @@ func TestGenerateEmptySpec(t *testing.T) {
 	assert.FileExists(t, typesPath, "Expected types.go to be created for empty spec")
 	assert.FileExists(t, serverPath, "Expected server.go to be created for empty spec")
 }
+
+func TestGenerateAuth(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	spec := &openapi.Document{
+		OpenAPI: "3.1.0",
+		Info: &openapi.Info{
+			Title:   "Test API with Auth",
+			Version: "1.0.0",
+		},
+		Components: &openapi.Components{
+			SecuritySchemes: map[string]*openapi.SecurityScheme{
+				"bearerAuth": {
+					Type:   "http",
+					Scheme: "bearer",
+				},
+			},
+		},
+		Paths: map[string]*openapi.PathItem{
+			"/protected": {
+				Get: &openapi.Operation{
+					OperationID: "getProtected",
+					Responses: map[string]*openapi.Response{
+						"200": {Description: "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	config := Config{
+		OutputDir:   tmpDir,
+		PackageName: "api",
+	}
+
+	gen := NewGenerator(spec, config)
+	err := gen.generateAuth()
+	require.NoError(t, err, "generateAuth should not fail")
+
+	// Check that auth.go was created
+	authPath := filepath.Join(tmpDir, "auth.go")
+	assert.FileExists(t, authPath, "Expected auth.go to be created")
+
+	// Read and verify content
+	content, err := os.ReadFile(authPath)
+	require.NoError(t, err, "Failed to read auth.go")
+
+	contentStr := string(content)
+	assert.Contains(t, contentStr, "type Authenticator interface", "Should contain Authenticator interface")
+	assert.Contains(t, contentStr, "AuthenticateBearerAuth", "Should contain bearer auth method")
+}
+
+func TestGenerateAuthNotCreatedWithoutSecuritySchemes(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	spec := &openapi.Document{
+		OpenAPI: "3.1.0",
+		Info: &openapi.Info{
+			Title:   "Test API without Auth",
+			Version: "1.0.0",
+		},
+		Paths: map[string]*openapi.PathItem{
+			"/public": {
+				Get: &openapi.Operation{
+					OperationID: "getPublic",
+					Responses: map[string]*openapi.Response{
+						"200": {Description: "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	config := Config{
+		OutputDir:   tmpDir,
+		PackageName: "api",
+	}
+
+	gen := NewGenerator(spec, config)
+	err := gen.generateAuth()
+	require.NoError(t, err, "generateAuth should not fail even without security schemes")
+
+	// auth.go should NOT be created
+	authPath := filepath.Join(tmpDir, "auth.go")
+	assert.NoFileExists(t, authPath, "auth.go should not be created without security schemes")
+}
+
+func TestHasSecuritySchemes(t *testing.T) {
+	tests := []struct {
+		name     string
+		spec     *openapi.Document
+		expected bool
+	}{
+		{
+			name: "with security schemes",
+			spec: &openapi.Document{
+				Components: &openapi.Components{
+					SecuritySchemes: map[string]*openapi.SecurityScheme{
+						"bearer": {Type: "http", Scheme: "bearer"},
+					},
+				},
+			},
+			expected: true,
+		},
+		{
+			name: "without components",
+			spec: &openapi.Document{
+				Components: nil,
+			},
+			expected: false,
+		},
+		{
+			name: "without security schemes",
+			spec: &openapi.Document{
+				Components: &openapi.Components{
+					SecuritySchemes: nil,
+				},
+			},
+			expected: false,
+		},
+		{
+			name: "with empty security schemes",
+			spec: &openapi.Document{
+				Components: &openapi.Components{
+					SecuritySchemes: map[string]*openapi.SecurityScheme{},
+				},
+			},
+			expected: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gen := NewGenerator(tt.spec, Config{})
+			result := gen.hasSecuritySchemes()
+			assert.Equal(t, tt.expected, result)
+		})
+	}
+}
+
+func TestGenerateWithAuthIntegration(t *testing.T) {
+	tmpDir := t.TempDir()
+
+	spec := &openapi.Document{
+		OpenAPI: "3.1.0",
+		Info: &openapi.Info{
+			Title:   "Auth API",
+			Version: "1.0.0",
+		},
+		Components: &openapi.Components{
+			SecuritySchemes: map[string]*openapi.SecurityScheme{
+				"basicAuth": {
+					Type:   "http",
+					Scheme: "basic",
+				},
+				"apiKey": {
+					Type: "apiKey",
+					In:   "header",
+					Name: "X-API-Key",
+				},
+			},
+			Schemas: map[string]*openapi.SchemaRef{
+				"User": {
+					Value: &openapi.Schema{
+						Type: []string{"object"},
+						Properties: map[string]*openapi.SchemaRef{
+							"id": {
+								Value: &openapi.Schema{
+									Type: []string{"integer"},
+								},
+							},
+						},
+						Required: []string{"id"},
+					},
+				},
+			},
+		},
+		Security: []openapi.SecurityRequirement{
+			{"basicAuth": []string{}},
+		},
+		Paths: map[string]*openapi.PathItem{
+			"/users": {
+				Get: &openapi.Operation{
+					OperationID: "listUsers",
+					Responses: map[string]*openapi.Response{
+						"200": {
+							Description: "Success",
+							Content: map[string]*openapi.MediaType{
+								"application/json": {
+									Schema: &openapi.SchemaRef{
+										Value: &openapi.Schema{
+											Type: []string{"array"},
+											Items: &openapi.SchemaRef{
+												Ref: "#/components/schemas/User",
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+			"/public": {
+				Get: &openapi.Operation{
+					OperationID: "getPublic",
+					Security:    []openapi.SecurityRequirement{},
+					Responses: map[string]*openapi.Response{
+						"200": {Description: "Success"},
+					},
+				},
+			},
+		},
+	}
+
+	config := Config{
+		OutputDir:   tmpDir,
+		PackageName: "api",
+	}
+
+	gen := NewGenerator(spec, config)
+	err := gen.Generate()
+	require.NoError(t, err, "Generate should not fail")
+
+	// All three files should be created
+	typesPath := filepath.Join(tmpDir, "types.go")
+	serverPath := filepath.Join(tmpDir, "server.go")
+	authPath := filepath.Join(tmpDir, "auth.go")
+
+	assert.FileExists(t, typesPath, "Expected types.go to be created")
+	assert.FileExists(t, serverPath, "Expected server.go to be created")
+	assert.FileExists(t, authPath, "Expected auth.go to be created")
+
+	// Verify auth.go content
+	authContent, err := os.ReadFile(authPath)
+	require.NoError(t, err, "Failed to read auth.go")
+
+	authStr := string(authContent)
+	assert.Contains(t, authStr, "AuthenticateBasicAuth")
+	assert.Contains(t, authStr, "AuthenticateApiKey")
+
+	// Verify server.go has auth integration
+	serverContent, err := os.ReadFile(serverPath)
+	require.NoError(t, err, "Failed to read server.go")
+
+	serverStr := string(serverContent)
+	assert.Contains(t, serverStr, "authenticator Authenticator", "Server should accept authenticator")
+	assert.Contains(t, serverStr, "authMiddleware", "Server should use auth middleware")
+}
+
