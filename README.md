@@ -18,6 +18,8 @@ SpecWeaver automatically generates type-safe Go code from OpenAPI specifications
 
 ## Installation
 
+### As a CLI Tool
+
 ```bash
 # Clone the repository
 git clone https://github.com/christopherklint97/specweaver.git
@@ -30,7 +32,22 @@ go build -o specweaver ./cmd/specweaver
 go install ./cmd/specweaver
 ```
 
+### As a Go Module Library
+
+```bash
+# Add to your project
+go get github.com/christopherklint97/specweaver@latest
+```
+
+Then import in your Go code:
+
+```go
+import "github.com/christopherklint97/specweaver"
+```
+
 ## Quick Start
+
+### CLI Usage
 
 ### 1. Generate Code from OpenAPI Spec
 
@@ -92,6 +109,78 @@ func main() {
 }
 ```
 
+### Library Usage
+
+You can also use SpecWeaver as a Go module library to programmatically generate code in your applications, build tools, or CI/CD pipelines.
+
+#### Simple API
+
+```go
+package main
+
+import (
+    "log"
+    "github.com/christopherklint97/specweaver"
+)
+
+func main() {
+    // Generate code with a single function call
+    err := specweaver.Generate("openapi.yaml", specweaver.Options{
+        OutputDir:   "./generated",
+        PackageName: "api",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+#### Advanced API
+
+For more control, use the parser and generator separately:
+
+```go
+package main
+
+import (
+    "fmt"
+    "log"
+    "github.com/christopherklint97/specweaver"
+)
+
+func main() {
+    // Parse the OpenAPI specification
+    parser := specweaver.NewParser()
+    err := parser.ParseFile("openapi.yaml")
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // Access the parsed spec
+    spec := parser.GetSpec()
+    fmt.Printf("Generating code for: %s v%s\n", spec.Info.Title, spec.Info.Version)
+
+    // Generate code with custom options
+    generator := specweaver.NewGenerator(spec, specweaver.Options{
+        OutputDir:   "./api",
+        PackageName: "myapi",
+    })
+
+    err = generator.Generate()
+    if err != nil {
+        log.Fatal(err)
+    }
+}
+```
+
+**Use Cases:**
+- Build tool integration (mage, make, custom scripts)
+- CI/CD pipeline automation
+- Dynamic API generation
+- Multi-spec batch processing
+
+See [examples/library/](examples/library/) for complete examples and integration patterns.
+
 ## Generated Code
 
 SpecWeaver generates two main files:
@@ -136,7 +225,9 @@ func NewRouter(si Server) *router.Mux {
 }
 ```
 
-## Example
+## Examples
+
+### Server Implementation Example
 
 A complete working example is available in `examples/server/`:
 
@@ -149,13 +240,29 @@ go run main.go
 curl http://localhost:8080/pets
 ```
 
-The example demonstrates:
+This example demonstrates:
 - Complete Server interface implementation
 - Request/response handling
 - Query parameter parsing
 - Path parameter extraction
 - JSON serialization
 - Error handling
+
+### Library Usage Example
+
+See `examples/library/` for examples of using SpecWeaver as a Go module library:
+
+```bash
+# Run the library usage example
+cd examples/library
+go run main.go
+```
+
+This example demonstrates:
+- Simple one-function generation
+- Advanced usage with parser and generator
+- Accessing the parsed OpenAPI spec
+- Integration patterns for build tools and CI/CD
 
 ## Type Mapping
 

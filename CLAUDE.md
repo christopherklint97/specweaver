@@ -15,6 +15,7 @@ This file documents the development history and architecture of SpecWeaver, an O
 
 ```
 specweaver/
+├── specweaver.go            # Public API for library usage
 ├── cmd/
 │   └── specweaver/          # CLI entry point
 │       └── main.go          # Command-line interface
@@ -34,9 +35,13 @@ specweaver/
 │   │   └── server.go        # Server code generation
 ├── examples/
 │   ├── petstore.yaml        # Example OpenAPI spec
-│   └── server/              # Example server implementation
-│       ├── main.go          # Reference implementation
-│       └── api/             # Generated code (copied for example)
+│   ├── server/              # Example server implementation
+│   │   ├── main.go          # Reference implementation
+│   │   └── api/             # Generated code (copied for example)
+│   └── library/             # Example of using SpecWeaver as a library
+│       ├── main.go          # Library usage examples
+│       ├── go.mod           # Module file for the example
+│       └── README.md        # Library usage documentation
 ├── generated/               # Default output directory
 ├── go.mod
 └── README.md
@@ -132,6 +137,19 @@ specweaver/
   - `-package`: Package name (default: `api`)
   - `-version`: Show version information
 
+#### 7. Public API (`specweaver.go`)
+- **Purpose**: Provide a clean, high-level API for library usage
+- **Features**:
+  - Simple one-function generation with `Generate()`
+  - Advanced usage with separate `Parser` and `Generator` types
+  - Wraps internal packages for a cleaner public interface
+  - Comprehensive godoc documentation
+- **Use Cases**:
+  - Build tool integration (mage, make, custom scripts)
+  - CI/CD pipeline automation
+  - Dynamic API generation tools
+  - Multi-spec batch processing
+
 ## Implementation Details
 
 ### Type Resolution
@@ -172,13 +190,95 @@ The generator uses a custom OpenAPI parser that supports all versions:
    - Preserves OpenAPI descriptions as comments
    - Comments for all exported types and functions
 
-## Usage Example
+## Usage
 
-### 1. Generate Code
+SpecWeaver can be used in two ways:
+
+1. **As a CLI tool** - For manual code generation and development
+2. **As a Go module library** - For programmatic integration in tools, build systems, and CI/CD
+
+### CLI Usage
+
+#### Generate Code
 
 ```bash
 ./specweaver -spec examples/petstore.yaml -output ./generated
 ```
+
+### Library Usage
+
+SpecWeaver can be imported as a Go module and used programmatically in your applications.
+
+#### Installation
+
+```bash
+go get github.com/christopherklint97/specweaver@latest
+```
+
+#### Simple API
+
+The simplest way to use SpecWeaver as a library:
+
+```go
+import "github.com/christopherklint97/specweaver"
+
+// Generate code with a single function call
+err := specweaver.Generate("openapi.yaml", specweaver.Options{
+    OutputDir:   "./generated",
+    PackageName: "api",
+})
+```
+
+#### Advanced API
+
+For more control, use the parser and generator separately:
+
+```go
+import "github.com/christopherklint97/specweaver"
+
+// Parse the OpenAPI spec
+parser := specweaver.NewParser()
+err := parser.ParseFile("openapi.yaml")
+if err != nil {
+    return err
+}
+
+// Access the parsed specification
+spec := parser.GetSpec()
+fmt.Printf("Generating for: %s v%s\n", spec.Info.Title, spec.Info.Version)
+
+// Generate code
+generator := specweaver.NewGenerator(spec, specweaver.Options{
+    OutputDir:   "./api",
+    PackageName: "myapi",
+})
+err = generator.Generate()
+```
+
+#### Public API Reference
+
+The root package (`specweaver.go`) provides a clean public API:
+
+**Functions:**
+- `Generate(specPath string, opts Options) error` - One-step generation
+- `NewParser() *Parser` - Create OpenAPI parser
+- `NewGenerator(spec *openapi.Document, opts Options) *Generator` - Create code generator
+
+**Types:**
+- `Options` - Configuration for code generation
+  - `OutputDir` - Output directory (default: "./generated")
+  - `PackageName` - Package name (default: "api")
+- `Parser` - OpenAPI specification parser
+- `Generator` - Code generator
+
+**Integration Examples:**
+
+See `examples/library/` for complete examples including:
+- Simple one-function generation
+- Advanced usage with parser and generator
+- Build tool integration patterns
+- CI/CD pipeline integration
+- Multi-spec batch processing
 
 ### 2. Implement the Server Interface
 
