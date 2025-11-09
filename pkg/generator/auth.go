@@ -146,24 +146,24 @@ func (g *AuthGenerator) generateAuthenticatorInterface(sb *strings.Builder) {
 			case "http":
 				if scheme.Scheme == "basic" {
 					sb.WriteString(fmt.Sprintf("\t// Authenticate%s authenticates using HTTP Basic Auth\n", methodName))
-					sb.WriteString(fmt.Sprintf("\t// Returns the authenticated principal or an error\n"))
+					sb.WriteString("\t// Returns the authenticated principal or an error\n")
 					sb.WriteString(fmt.Sprintf("\tAuthenticate%s(ctx context.Context, credentials BasicAuthCredentials) (any, error)\n\n", methodName))
 				} else if scheme.Scheme == "bearer" {
 					sb.WriteString(fmt.Sprintf("\t// Authenticate%s authenticates using HTTP Bearer token\n", methodName))
-					sb.WriteString(fmt.Sprintf("\t// Returns the authenticated principal or an error\n"))
+					sb.WriteString("\t// Returns the authenticated principal or an error\n")
 					sb.WriteString(fmt.Sprintf("\tAuthenticate%s(ctx context.Context, credentials BearerTokenCredentials) (any, error)\n\n", methodName))
 				}
 			case "apiKey":
 				sb.WriteString(fmt.Sprintf("\t// Authenticate%s authenticates using API Key\n", methodName))
-				sb.WriteString(fmt.Sprintf("\t// Returns the authenticated principal or an error\n"))
+				sb.WriteString("\t// Returns the authenticated principal or an error\n")
 				sb.WriteString(fmt.Sprintf("\tAuthenticate%s(ctx context.Context, credentials APIKeyCredentials) (any, error)\n\n", methodName))
 			case "oauth2":
 				sb.WriteString(fmt.Sprintf("\t// Authenticate%s authenticates using OAuth 2.0\n", methodName))
-				sb.WriteString(fmt.Sprintf("\t// Returns the authenticated principal or an error\n"))
+				sb.WriteString("\t// Returns the authenticated principal or an error\n")
 				sb.WriteString(fmt.Sprintf("\tAuthenticate%s(ctx context.Context, credentials OAuth2Credentials) (any, error)\n\n", methodName))
 			case "openIdConnect":
 				sb.WriteString(fmt.Sprintf("\t// Authenticate%s authenticates using OpenID Connect\n", methodName))
-				sb.WriteString(fmt.Sprintf("\t// Returns the authenticated principal or an error\n"))
+				sb.WriteString("\t// Returns the authenticated principal or an error\n")
 				sb.WriteString(fmt.Sprintf("\tAuthenticate%s(ctx context.Context, credentials OpenIDConnectCredentials) (any, error)\n\n", methodName))
 			}
 		}

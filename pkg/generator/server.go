@@ -673,12 +673,12 @@ func (g *ServerGenerator) generateSecuritySchemeInfoMap(sb *strings.Builder) {
 // hasSecurityRequirements checks if an operation has security requirements
 func (g *ServerGenerator) hasSecurityRequirements(op *openapi.Operation) bool {
 	// Check operation-level security
-	if op.Security != nil && len(op.Security) > 0 {
+	if len(op.Security) > 0 {
 		return true
 	}
 
 	// Check global security (if operation doesn't override)
-	if op.Security == nil && g.spec.Security != nil && len(g.spec.Security) > 0 {
+	if op.Security == nil && len(g.spec.Security) > 0 {
 		return true
 	}
 
