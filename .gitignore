@@ -9,6 +9,10 @@
 *.dylib
 /specweaver
 
+# Example binaries
+examples/server/server
+examples/custom-router/custom-router
+
 # Test binary, built with `go test -c`
 *.test
 
