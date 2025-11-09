@@ -26,6 +26,9 @@ func NewServerGenerator(spec *openapi.Document) *ServerGenerator {
 func (g *ServerGenerator) Generate() (string, error) {
 	var sb strings.Builder
 
+	// Check if we need strconv (for parsing int/float/bool parameters)
+	needsStrconv := g.needsStrconvImport()
+
 	sb.WriteString("package api\n\n")
 	sb.WriteString("import (\n")
 	sb.WriteString("\t\"context\"\n")
@@ -34,7 +37,9 @@ func (g *ServerGenerator) Generate() (string, error) {
 	sb.WriteString("\t\"fmt\"\n")
 	sb.WriteString("\t\"io\"\n")
 	sb.WriteString("\t\"net/http\"\n")
-	sb.WriteString("\t\"strconv\"\n")
+	if needsStrconv {
+		sb.WriteString("\t\"strconv\"\n")
+	}
 	sb.WriteString("\n")
 	sb.WriteString("\t\"github.com/christopherklint97/specweaver/pkg/router\"\n")
 	sb.WriteString(")\n\n")
@@ -988,4 +993,38 @@ func getOperationsInOrder(pathItem *openapi.PathItem) []methodOperation {
 	}
 
 	return result
+}
+
+// needsStrconvImport checks if any parameters require strconv for parsing
+func (g *ServerGenerator) needsStrconvImport() bool {
+	if g.spec.Paths == nil {
+		return false
+	}
+
+	for _, pathItem := range g.spec.Paths {
+		operations := getOperationsInOrder(pathItem)
+		for _, methodOp := range operations {
+			op := methodOp.Operation
+			if op.Parameters != nil {
+				for _, param := range op.Parameters {
+					if param == nil || param.Schema == nil || param.Schema.Value == nil {
+						continue
+					}
+
+					// Check if parameter is in path or query (these get parsed)
+					if param.In != "path" && param.In != "query" {
+						continue
+					}
+
+					schemaType := param.Schema.Value.GetSchemaType()
+					// strconv is needed for integer, number, and boolean types
+					if schemaType == "integer" || schemaType == "number" || schemaType == "boolean" {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }

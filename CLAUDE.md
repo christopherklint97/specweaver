@@ -33,16 +33,23 @@ specweaver/
 │   │   ├── generator.go     # Main generator coordinator
 │   │   ├── types.go         # Type/struct generation
 │   │   ├── server.go        # Server code generation
-│   │   └── auth.go          # Authentication code generation
+│   │   ├── auth.go          # Authentication code generation
+│   │   └── webhooks.go      # Webhook client code generation
 ├── examples/
 │   ├── petstore.yaml        # Example OpenAPI spec
 │   ├── auth-example.yaml    # Example with all authentication types
+│   ├── webhooks-example.yaml # Example with webhooks
 │   ├── server/              # Example server implementation
 │   │   ├── main.go          # Reference implementation
 │   │   └── api/             # Generated code (copied for example)
 │   ├── auth-server/         # Example with authentication
 │   │   ├── main.go          # Auth example implementation
 │   │   └── api/             # Generated code with auth
+│   ├── webhooks-server/     # Example with webhooks
+│   │   ├── main.go          # Webhooks example implementation
+│   │   ├── go.mod           # Module file for the example
+│   │   ├── README.md        # Webhooks usage documentation
+│   │   └── api/             # Generated code with webhooks
 │   ├── library/             # Example of using SpecWeaver as a library
 │   │   ├── main.go          # Library usage examples
 │   │   ├── go.mod           # Module file for the example
@@ -172,21 +179,61 @@ specweaver/
   - Generated `Authenticator` interface must be implemented by the user
   - Middleware calls appropriate authenticator method based on scheme type
 
-#### 6. Main Generator (`pkg/generator/generator.go`)
+#### 6. Webhook Generator (`pkg/generator/webhooks.go`)
+- **Purpose**: Generate webhook client code from OpenAPI webhooks
+- **Webhooks Overview**: Webhooks are reverse APIs where the server sends HTTP requests to client-provided URLs when events occur
+- **Supported Features**:
+  - **All HTTP Methods**: POST, PUT, PATCH, DELETE, etc.
+  - **Request Bodies**: Type-safe webhook payloads
+  - **Custom Headers**: Required and optional headers
+  - **Multiple Response Codes**: Type-safe response handling
+  - **Context Support**: All webhook senders accept `context.Context`
+- **Generated Components**:
+  - **Request Types**: One per webhook (e.g., `OnNewPetRequest`)
+    - `URL` field for webhook destination
+    - Header fields for custom headers
+    - `Body` field for webhook payload
+  - **Response Types**: Interface with concrete types per status code
+    - Interface (e.g., `OnNewPetResponse`)
+    - Concrete types (e.g., `OnNewPet200Response`, `OnNewPet500Response`)
+    - Each implements `StatusCode() int` and `ResponseBody() any` methods
+  - **WebhookClient Interface**: Clean webhook sender methods
+  - **DefaultWebhookClient**: HTTP implementation with customizable HTTP client
+  - **NewWebhookClient()**: Factory function for default client
+- **Implementation Pattern**:
+  ```go
+  // Create webhook client
+  client := api.NewWebhookClient()
+
+  // Send webhook
+  resp, err := client.OnNewPet(ctx, api.OnNewPetRequest{
+      URL:  "https://subscriber.example.com/webhook",
+      Body: pet,
+  })
+  ```
+- **Features**:
+  - Automatic JSON serialization of request bodies
+  - Custom HTTP client support via `DefaultWebhookClient.HTTPClient`
+  - Type-safe response parsing based on status codes
+  - Proper error handling with context support
+  - Asynchronous sending support (via goroutines)
+- **Available in**: OpenAPI 3.1+
+
+#### 7. Main Generator (`pkg/generator/generator.go`)
 - **Purpose**: Coordinate the generation process
 - **Responsibilities**:
   - Create output directory
-  - Orchestrate type, server, and auth generation
+  - Orchestrate type, server, auth, and webhook generation
   - Write generated code to files
 
-#### 7. CLI (`cmd/specweaver/main.go`)
+#### 8. CLI (`cmd/specweaver/main.go`)
 - **Flags**:
   - `-spec`: Path to OpenAPI spec file (required)
   - `-output`: Output directory (default: `./generated`)
   - `-package`: Package name (default: `api`)
   - `-version`: Show version information
 
-#### 8. Public API (`specweaver.go`)
+#### 9. Public API (`specweaver.go`)
 - **Purpose**: Provide a clean, high-level API for library usage
 - **Features**:
   - Simple one-function generation with `Generate()`
