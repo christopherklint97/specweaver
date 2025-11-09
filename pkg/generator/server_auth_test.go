@@ -429,18 +429,3 @@ func TestSecurityRequirementsLiteralDeterministic(t *testing.T) {
 	assert.True(t, aAuthPos < mAuthPos, "aAuth should come before mAuth")
 	assert.True(t, mAuthPos < zAuthPos, "mAuth should come before zAuth")
 }
-
-// Helper functions
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
