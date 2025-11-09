@@ -64,12 +64,13 @@ import "github.com/christopherklint97/specweaver"
 
 ### 2. Implement the Generated Interface
 
-The generator creates a `Server` interface that you need to implement:
+The generator creates a `Server` interface with clean, testable methods using `context.Context`:
 
 ```go
 package main
 
 import (
+    "context"
     "net/http"
     "github.com/yourorg/yourapp/generated/api"
 )
@@ -78,24 +79,61 @@ type MyServer struct {
     // Your application state
 }
 
-// Implement the interface methods
-func (s *MyServer) ListPets(w http.ResponseWriter, r *http.Request) {
+// Implement the interface methods with context-based handlers
+func (s *MyServer) ListPets(ctx context.Context, req api.ListPetsRequest) (api.ListPetsResponse, error) {
+    // Access query parameters
+    limit := 20
+    if req.Limit != nil {
+        limit = int(*req.Limit)
+    }
+
     pets := []api.Pet{
         {Id: 1, Name: "Fluffy", Status: api.PetStatusAvailable},
     }
-    api.WriteJSON(w, http.StatusOK, pets)
+
+    // Return typed response
+    return api.ListPets200Response{Body: pets}, nil
 }
 
-func (s *MyServer) CreatePet(w http.ResponseWriter, r *http.Request) {
-    var newPet api.NewPet
-    if err := api.ReadJSON(r, &newPet); err != nil {
-        api.WriteError(w, http.StatusBadRequest, err)
-        return
+func (s *MyServer) CreatePet(ctx context.Context, req api.CreatePetRequest) (api.CreatePetResponse, error) {
+    // Validation with custom status code
+    if req.Body.Name == "" {
+        return nil, api.NewHTTPError(http.StatusBadRequest, "name is required")
     }
+
     // Process the new pet...
+    pet := api.Pet{
+        Id:   1,
+        Name: req.Body.Name,
+    }
+
+    // Return 201 Created response
+    return api.CreatePet201Response{Body: pet}, nil
 }
 
-// Implement other methods...
+func (s *MyServer) GetPetById(ctx context.Context, req api.GetPetByIdRequest) (api.GetPetByIdResponse, error) {
+    // Access path parameters
+    petId := req.PetId
+
+    pet, exists := s.findPet(petId)
+    if !exists {
+        // Return 404 response (not an error!)
+        return api.GetPetById404Response{
+            Body: api.Error{
+                Error:   "Not Found",
+                Message: "pet not found",
+            },
+        }, nil
+    }
+
+    return api.GetPetById200Response{Body: pet}, nil
+}
+
+// Helper method
+func (s *MyServer) findPet(id int64) (api.Pet, bool) {
+    // Your pet lookup logic
+    return api.Pet{}, false
+}
 ```
 
 ### 3. Start Your Server
@@ -247,21 +285,78 @@ const (
 
 ### `server.go` - Server Code
 
-Contains the interface and routing:
+Contains clean, context-based server interface, request/response types, and routing:
 
 ```go
-type Server interface {
-    ListPets(w http.ResponseWriter, r *http.Request)
-    CreatePet(w http.ResponseWriter, r *http.Request)
-    GetPetById(w http.ResponseWriter, r *http.Request)
-    UpdatePet(w http.ResponseWriter, r *http.Request)
-    DeletePet(w http.ResponseWriter, r *http.Request)
+// Request types for each operation
+type ListPetsRequest struct {
+    Limit *int32  // Query parameter
+    Tag   *string // Query parameter
 }
 
-func NewRouter(si Server) *router.Mux {
-    // Creates a configured router with all routes
+type CreatePetRequest struct {
+    Body NewPet // Request body
 }
+
+type GetPetByIdRequest struct {
+    PetId int64 // Path parameter
+}
+
+// Response interfaces and concrete types
+type ListPetsResponse interface {
+    StatusCode() int
+}
+
+type ListPets200Response struct {
+    Body []Pet
+}
+
+func (r ListPets200Response) StatusCode() int { return 200 }
+
+type ListPets500Response struct {
+    Body Error
+}
+
+func (r ListPets500Response) StatusCode() int { return 500 }
+
+// HTTPError for custom error status codes
+type HTTPError struct {
+    Code    int
+    Message string
+    Err     error
+}
+
+func NewHTTPError(code int, message string) *HTTPError
+func NewHTTPErrorf(code int, format string, args ...any) *HTTPError
+func WrapHTTPError(code int, err error, message string) *HTTPError
+
+// Server interface with context-based handlers
+type Server interface {
+    ListPets(ctx context.Context, req ListPetsRequest) (ListPetsResponse, error)
+    CreatePet(ctx context.Context, req CreatePetRequest) (CreatePetResponse, error)
+    GetPetById(ctx context.Context, req GetPetByIdRequest) (GetPetByIdResponse, error)
+    UpdatePet(ctx context.Context, req UpdatePetRequest) (UpdatePetResponse, error)
+    DeletePet(ctx context.Context, req DeletePetRequest) (DeletePetResponse, error)
+}
+
+// Router setup functions
+func NewRouter(si Server) *router.Mux
+func ConfigureRouter(r router.Router, si Server)
+
+// Helper functions
+func WriteJSON(w http.ResponseWriter, code int, data any) error
+func WriteResponse(w http.ResponseWriter, resp interface{ StatusCode() int }) error
+func WriteError(w http.ResponseWriter, code int, err error) error
+func ReadJSON(r *http.Request, v any) error
 ```
+
+### Handler Pattern Benefits
+
+1. **Testability**: No HTTP dependencies in business logic
+2. **Type Safety**: Compile-time checks for all parameters and responses
+3. **Smart Errors**: HTTPError provides custom status codes, defaults to 500
+4. **Clean Separation**: HTTP adapter layer handles parsing/serialization
+5. **Context Support**: Pass deadlines, cancellation, and request-scoped values
 
 ## Examples
 
@@ -279,12 +374,12 @@ curl http://localhost:8080/pets
 ```
 
 This example demonstrates:
-- Complete Server interface implementation
-- Request/response handling
-- Query parameter parsing
-- Path parameter extraction
-- JSON serialization
-- Error handling
+- Complete Server interface implementation with context-based handlers
+- Type-safe request structs with path and query parameters
+- Response types for different status codes
+- HTTPError for custom error status codes
+- Clean separation of business logic from HTTP concerns
+- Context usage for request-scoped values
 
 ### Library Usage Example
 
@@ -385,6 +480,79 @@ specweaver/
 - **Zero external dependencies** - All generated code uses only Go standard library and the custom router from this project
 
 ## Development
+
+### Makefile Commands
+
+SpecWeaver includes a comprehensive Makefile for development automation. Run `make help` to see all available targets.
+
+#### Build Commands
+
+```bash
+make build         # Build the specweaver binary
+make install       # Install to GOPATH/bin
+make clean         # Clean build artifacts and generated files
+make all           # Run clean, fmt, vet, test, and build
+```
+
+#### Testing Commands
+
+```bash
+make test          # Run all tests
+make test-coverage # Run tests with coverage report (generates HTML)
+make test-race     # Run tests with race detector
+make test-verbose  # Run tests with verbose output
+make test-bench    # Run benchmark tests
+```
+
+#### Code Quality Commands
+
+```bash
+make fmt           # Format all Go code
+make vet           # Run go vet
+make lint          # Run golangci-lint (if installed)
+make check         # Run fmt, vet, and test (pre-commit checks)
+```
+
+#### Code Generation Commands
+
+```bash
+make generate          # Generate code from petstore example
+make generate-examples # Regenerate code for all examples
+```
+
+#### Example Commands
+
+```bash
+make example-server        # Run the example server
+make example-library       # Run the library usage example
+make example-custom-router # Run the custom router example
+```
+
+#### Dependency Commands
+
+```bash
+make deps          # Download dependencies
+make update-deps   # Update dependencies to latest versions
+make tidy          # Run go mod tidy
+```
+
+#### Development Workflow
+
+```bash
+make dev           # Quick development cycle (clean, fmt, vet, build)
+make watch         # Watch for changes and rebuild (requires entr)
+make version       # Show Go and module versions
+```
+
+#### Utility Commands
+
+```bash
+make tree          # Show project structure
+make size          # Show binary size
+make todo          # Show TODO and FIXME comments in code
+```
+
+### Development Documentation
 
 See [CLAUDE.md](CLAUDE.md) for detailed development documentation, architecture decisions, and contribution guidelines.
 
