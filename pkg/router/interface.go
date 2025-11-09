@@ -10,14 +10,16 @@ import "net/http"
 //  1. Support all standard HTTP methods (GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD)
 //  2. Support middleware via the Use method
 //  3. Support path parameters in the format {paramName}
-//  4. Store path parameters in the request context using URLParamKey
+//  4. Store path parameters in the request context using URLParamKey (defined in this package)
 //  5. Implement http.Handler interface
 //
 // Example of storing path parameters in context:
 //
 //	params := map[string]string{"id": "123"}
-//	ctx := context.WithValue(r.Context(), router.URLParamKey, params)
+//	ctx := context.WithValue(r.Context(), URLParamKey, params)
 //	handler.ServeHTTP(w, r.WithContext(ctx))
+//
+// Note: URLParamKey is a context key constant defined in pkg/router/router.go
 type Router interface {
 	http.Handler
 
