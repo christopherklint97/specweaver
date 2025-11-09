@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 
@@ -110,19 +111,20 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 		return nil
 	}
 
-	for path, pathItem := range g.spec.Paths {
-		operations := map[string]*openapi.Operation{
-			http.MethodGet:    pathItem.Get,
-			http.MethodPost:   pathItem.Post,
-			http.MethodPut:    pathItem.Put,
-			http.MethodPatch:  pathItem.Patch,
-			http.MethodDelete: pathItem.Delete,
-		}
+	// Sort paths for deterministic output
+	paths := make([]string, 0, len(g.spec.Paths))
+	for path := range g.spec.Paths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
 
-		for method, op := range operations {
-			if op == nil {
-				continue
-			}
+	for _, path := range paths {
+		pathItem := g.spec.Paths[path]
+		operations := getOperationsInOrder(pathItem)
+
+		for _, methodOp := range operations {
+			method := methodOp.Method
+			op := methodOp.Operation
 
 			handlerName := generateHandlerName(method, path, op.OperationID)
 			requestTypeName := handlerName + "Request"
@@ -196,19 +198,20 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 		return nil
 	}
 
-	for path, pathItem := range g.spec.Paths {
-		operations := map[string]*openapi.Operation{
-			http.MethodGet:    pathItem.Get,
-			http.MethodPost:   pathItem.Post,
-			http.MethodPut:    pathItem.Put,
-			http.MethodPatch:  pathItem.Patch,
-			http.MethodDelete: pathItem.Delete,
-		}
+	// Sort paths for deterministic output
+	paths := make([]string, 0, len(g.spec.Paths))
+	for path := range g.spec.Paths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
 
-		for method, op := range operations {
-			if op == nil {
-				continue
-			}
+	for _, path := range paths {
+		pathItem := g.spec.Paths[path]
+		operations := getOperationsInOrder(pathItem)
+
+		for _, methodOp := range operations {
+			method := methodOp.Method
+			op := methodOp.Operation
 
 			handlerName := generateHandlerName(method, path, op.OperationID)
 			responseTypeName := handlerName + "Response"
@@ -221,9 +224,16 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 			sb.WriteString("\tResponseBody() any\n")
 			sb.WriteString("}\n\n")
 
-			// Generate concrete response types for each status code
+			// Generate concrete response types for each status code (in sorted order)
 			if op.Responses != nil {
-				for statusCode, response := range op.Responses {
+				statusCodes := make([]string, 0, len(op.Responses))
+				for statusCode := range op.Responses {
+					statusCodes = append(statusCodes, statusCode)
+				}
+				sort.Strings(statusCodes)
+
+				for _, statusCode := range statusCodes {
+					response := op.Responses[statusCode]
 					if response == nil {
 						continue
 					}
@@ -284,19 +294,20 @@ func (g *ServerGenerator) generateServerInterface(sb *strings.Builder) error {
 		return nil
 	}
 
-	for path, pathItem := range g.spec.Paths {
-		operations := map[string]*openapi.Operation{
-			http.MethodGet:    pathItem.Get,
-			http.MethodPost:   pathItem.Post,
-			http.MethodPut:    pathItem.Put,
-			http.MethodPatch:  pathItem.Patch,
-			http.MethodDelete: pathItem.Delete,
-		}
+	// Sort paths for deterministic output
+	paths := make([]string, 0, len(g.spec.Paths))
+	for path := range g.spec.Paths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
 
-		for method, op := range operations {
-			if op == nil {
-				continue
-			}
+	for _, path := range paths {
+		pathItem := g.spec.Paths[path]
+		operations := getOperationsInOrder(pathItem)
+
+		for _, methodOp := range operations {
+			method := methodOp.Method
+			op := methodOp.Operation
 
 			handlerName := generateHandlerName(method, path, op.OperationID)
 			requestTypeName := handlerName + "Request"
@@ -326,20 +337,21 @@ func (g *ServerGenerator) generateHandlerWrapper(sb *strings.Builder) {
 		return
 	}
 
-	// Generate adapter methods for each operation
-	for path, pathItem := range g.spec.Paths {
-		operations := map[string]*openapi.Operation{
-			http.MethodGet:    pathItem.Get,
-			http.MethodPost:   pathItem.Post,
-			http.MethodPut:    pathItem.Put,
-			http.MethodPatch:  pathItem.Patch,
-			http.MethodDelete: pathItem.Delete,
-		}
+	// Sort paths for deterministic output
+	paths := make([]string, 0, len(g.spec.Paths))
+	for path := range g.spec.Paths {
+		paths = append(paths, path)
+	}
+	sort.Strings(paths)
 
-		for method, op := range operations {
-			if op == nil {
-				continue
-			}
+	// Generate adapter methods for each operation
+	for _, path := range paths {
+		pathItem := g.spec.Paths[path]
+		operations := getOperationsInOrder(pathItem)
+
+		for _, methodOp := range operations {
+			method := methodOp.Method
+			op := methodOp.Operation
 
 			handlerName := generateHandlerName(method, path, op.OperationID)
 			g.generateAdapterMethod(sb, handlerName, path, op)
@@ -545,21 +557,21 @@ func (g *ServerGenerator) generateRouter(sb *strings.Builder) {
 	sb.WriteString("\n")
 
 	if g.spec.Paths != nil {
-		for path, pathItem := range g.spec.Paths {
+		// Sort paths for deterministic output
+		paths := make([]string, 0, len(g.spec.Paths))
+		for path := range g.spec.Paths {
+			paths = append(paths, path)
+		}
+		sort.Strings(paths)
+
+		for _, path := range paths {
+			pathItem := g.spec.Paths[path]
 			routerPath := convertToRouterPath(path)
+			operations := getOperationsInOrder(pathItem)
 
-			operations := map[string]*openapi.Operation{
-				http.MethodGet:    pathItem.Get,
-				http.MethodPost:   pathItem.Post,
-				http.MethodPut:    pathItem.Put,
-				http.MethodPatch:  pathItem.Patch,
-				http.MethodDelete: pathItem.Delete,
-			}
-
-			for method, op := range operations {
-				if op == nil {
-					continue
-				}
+			for _, methodOp := range operations {
+				method := methodOp.Method
+				op := methodOp.Operation
 
 				handlerName := generateHandlerName(method, path, op.OperationID)
 				adapterMethodName := "handle" + handlerName
@@ -798,4 +810,54 @@ func getRouterMethodName(method string) string {
 	default:
 		return "Get"
 	}
+}
+
+// methodOperation represents an HTTP method and its operation
+type methodOperation struct {
+	Method    string
+	Operation *openapi.Operation
+}
+
+// getOperationsInOrder returns operations for a path item in deterministic order
+func getOperationsInOrder(pathItem *openapi.PathItem) []methodOperation {
+	// Define the order of HTTP methods for determinism
+	methodOrder := []string{
+		http.MethodGet,
+		http.MethodPost,
+		http.MethodPut,
+		http.MethodPatch,
+		http.MethodDelete,
+		http.MethodOptions,
+		http.MethodHead,
+	}
+
+	var result []methodOperation
+	for _, method := range methodOrder {
+		var op *openapi.Operation
+		switch method {
+		case http.MethodGet:
+			op = pathItem.Get
+		case http.MethodPost:
+			op = pathItem.Post
+		case http.MethodPut:
+			op = pathItem.Put
+		case http.MethodPatch:
+			op = pathItem.Patch
+		case http.MethodDelete:
+			op = pathItem.Delete
+		case http.MethodOptions:
+			op = pathItem.Options
+		case http.MethodHead:
+			op = pathItem.Head
+		}
+
+		if op != nil {
+			result = append(result, methodOperation{
+				Method:    method,
+				Operation: op,
+			})
+		}
+	}
+
+	return result
 }
