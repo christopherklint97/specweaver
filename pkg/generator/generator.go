@@ -159,11 +159,10 @@ func (g *Generator) generateWebhooks() error {
 // hasSecuritySchemes checks if the spec defines any security schemes
 func (g *Generator) hasSecuritySchemes() bool {
 	return g.spec.Components != nil &&
-		g.spec.Components.SecuritySchemes != nil &&
 		len(g.spec.Components.SecuritySchemes) > 0
 }
 
 // hasWebhooks checks if the spec defines any webhooks
 func (g *Generator) hasWebhooks() bool {
-	return g.spec.Webhooks != nil && len(g.spec.Webhooks) > 0
+	return len(g.spec.Webhooks) > 0
 }
