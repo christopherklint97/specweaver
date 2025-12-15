@@ -10,6 +10,7 @@ SpecWeaver automatically generates type-safe Go code from OpenAPI specifications
 - 🔧 **Custom Robust Parser** - No external OpenAPI library dependencies
 - 🎯 **Type-Safe Code** - Generates idiomatic Go structs with proper types
 - 🔐 **Authentication Support** - Automatic generation of auth middleware for all OpenAPI security schemes (Basic, Bearer, API Key, OAuth2, OIDC)
+- 🪝 **Webhooks Support** - Generate type-safe webhook clients from OpenAPI 3.1+ webhook definitions
 - 🚀 **Production Ready** - Includes error handling, middleware, and best practices
 - 📝 **Documentation Preserved** - OpenAPI descriptions become Go comments
 - 🔄 **Schema References** - Properly resolves `$ref` to generate correct types
@@ -260,7 +261,7 @@ See [examples/custom-router/](examples/custom-router/) for a complete chi router
 
 ## Generated Code
 
-SpecWeaver generates two main files:
+SpecWeaver generates the following files:
 
 ### `types.go` - Type Definitions
 
@@ -352,6 +353,53 @@ func WriteError(w http.ResponseWriter, code int, err error) error
 func ReadJSON(r *http.Request, v any) error
 ```
 
+### `webhooks.go` - Webhook Client (Optional, OpenAPI 3.1+)
+
+Generated when webhooks are defined in the OpenAPI specification:
+
+```go
+// Request types for each webhook
+type OnNewPetRequest struct {
+    URL  string // Webhook destination URL
+    Body Pet    // Webhook payload
+}
+
+type OnPetStatusChangedRequest struct {
+    URL        string
+    XEventID   string  // Custom header
+    XEventTime *string // Optional custom header
+    Body       PetStatusEvent
+}
+
+// Response interfaces and types
+type OnNewPetResponse interface {
+    isOnNewPetResponse()
+    StatusCode() int
+    ResponseBody() any
+}
+
+type OnNewPet200Response struct {
+    Body WebhookAck
+}
+
+// WebhookClient interface
+type WebhookClient interface {
+    OnNewPet(ctx context.Context, req OnNewPetRequest) (OnNewPetResponse, error)
+    OnPetStatusChanged(ctx context.Context, req OnPetStatusChangedRequest) (OnPetStatusChangedResponse, error)
+}
+
+// Default HTTP implementation
+type DefaultWebhookClient struct {
+    HTTPClient *http.Client
+}
+
+func NewWebhookClient() *DefaultWebhookClient
+```
+
+### `auth.go` - Authentication (Optional)
+
+Generated when security schemes are defined in the OpenAPI specification. See the [authentication example](examples/auth-server/) for details.
+
 ### Handler Pattern Benefits
 
 1. **Testability**: No HTTP dependencies in business logic
@@ -419,6 +467,36 @@ This example demonstrates:
 - Using chi-specific middleware with SpecWeaver
 - Configuring routes with `ConfigureRouter`
 
+### Webhooks Example
+
+See `examples/webhooks-server/` for a complete example of using webhooks with SpecWeaver:
+
+```bash
+# Run the webhooks example
+cd examples/webhooks-server
+go run main.go
+
+# Subscribe to webhooks
+curl -X POST http://localhost:8080/subscriptions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "sub-1",
+    "url": "https://your-webhook-receiver.com/webhook",
+    "events": ["newPet", "petStatusChanged"],
+    "active": true
+  }'
+```
+
+This example demonstrates:
+- Defining webhooks in OpenAPI 3.1+ specifications
+- Type-safe webhook client generation
+- Sending webhooks to subscriber URLs
+- Custom headers in webhook requests
+- Multiple response status code handling
+- Asynchronous webhook delivery
+
+See [examples/webhooks-server/README.md](examples/webhooks-server/README.md) for detailed documentation on using webhooks.
+
 ## Type Mapping
 
 SpecWeaver intelligently maps OpenAPI types to Go:
@@ -457,6 +535,8 @@ SpecWeaver intelligently maps OpenAPI types to Go:
 - ✅ Request/response bodies
 - ✅ Nested objects
 - ✅ Format specifications (date, date-time, int64, float, etc.)
+- ✅ Security schemes (Basic, Bearer, API Key, OAuth2, OIDC)
+- ✅ Webhooks (OpenAPI 3.1+)
 
 ## Project Structure
 

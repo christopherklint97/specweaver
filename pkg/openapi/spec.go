@@ -7,6 +7,7 @@ type Document struct {
 	Info       *Info                 `yaml:"info" json:"info"`
 	Servers    []*Server             `yaml:"servers,omitempty" json:"servers,omitempty"`
 	Paths      Paths                 `yaml:"paths,omitempty" json:"paths,omitempty"`
+	Webhooks   Webhooks              `yaml:"webhooks,omitempty" json:"webhooks,omitempty"`
 	Components *Components           `yaml:"components,omitempty" json:"components,omitempty"`
 	Security   []SecurityRequirement `yaml:"security,omitempty" json:"security,omitempty"`
 	Tags       []*Tag                `yaml:"tags,omitempty" json:"tags,omitempty"`
@@ -53,6 +54,10 @@ type ServerVariable struct {
 
 // Paths holds the relative paths to the individual endpoints
 type Paths map[string]*PathItem
+
+// Webhooks holds the webhooks that may be received as part of this API
+// Available in OpenAPI 3.1+
+type Webhooks map[string]*PathItem
 
 // PathItem describes the operations available on a single path
 type PathItem struct {

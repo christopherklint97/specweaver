@@ -1,0 +1,212 @@
+openapi: 3.1.0
+info:
+  title: Webhooks Example API
+  description: Example API demonstrating webhook support
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+
+paths:
+  /subscriptions:
+    post:
+      operationId: createSubscription
+      summary: Subscribe to webhooks
+      description: Register a URL to receive webhook notifications
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Subscription'
+      responses:
+        '201':
+          description: Subscription created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Subscription'
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /subscriptions/{id}:
+    delete:
+      operationId: deleteSubscription
+      summary: Unsubscribe from webhooks
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '204':
+          description: Subscription deleted
+        '404':
+          description: Subscription not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+webhooks:
+  newPet:
+    post:
+      operationId: onNewPet
+      summary: Triggered when a new pet is created
+      description: This webhook is called when a new pet is added to the system
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Pet'
+      responses:
+        '200':
+          description: Webhook received successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAck'
+        '500':
+          description: Webhook processing failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  petStatusChanged:
+    post:
+      operationId: onPetStatusChanged
+      summary: Triggered when a pet's status changes
+      description: This webhook is called when a pet's status is updated
+      parameters:
+        - name: X-Event-ID
+          in: header
+          required: true
+          schema:
+            type: string
+          description: Unique event identifier
+        - name: X-Event-Time
+          in: header
+          required: false
+          schema:
+            type: string
+            format: date-time
+          description: Event timestamp
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PetStatusEvent'
+      responses:
+        '200':
+          description: Webhook received successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebhookAck'
+        '400':
+          description: Invalid webhook payload
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+components:
+  schemas:
+    Subscription:
+      type: object
+      required:
+        - id
+        - url
+        - events
+      properties:
+        id:
+          type: string
+          description: Unique subscription identifier
+        url:
+          type: string
+          format: uri
+          description: Webhook destination URL
+        events:
+          type: array
+          items:
+            type: string
+            enum:
+              - newPet
+              - petStatusChanged
+          description: Events to subscribe to
+        active:
+          type: boolean
+          default: true
+          description: Whether the subscription is active
+
+    Pet:
+      type: object
+      required:
+        - id
+        - name
+      properties:
+        id:
+          type: string
+          description: Unique pet identifier
+        name:
+          type: string
+          description: Pet name
+        status:
+          type: string
+          enum:
+            - available
+            - pending
+            - adopted
+          description: Pet status
+        species:
+          type: string
+          description: Species of the pet
+
+    PetStatusEvent:
+      type: object
+      required:
+        - petId
+        - oldStatus
+        - newStatus
+      properties:
+        petId:
+          type: string
+          description: Pet identifier
+        oldStatus:
+          type: string
+          description: Previous status
+        newStatus:
+          type: string
+          description: New status
+        timestamp:
+          type: string
+          format: date-time
+          description: When the status changed
+
+    WebhookAck:
+      type: object
+      properties:
+        received:
+          type: boolean
+          default: true
+        message:
+          type: string
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+        message:
+          type: string

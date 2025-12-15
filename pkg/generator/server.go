@@ -26,6 +26,9 @@ func NewServerGenerator(spec *openapi.Document) *ServerGenerator {
 func (g *ServerGenerator) Generate() (string, error) {
 	var sb strings.Builder
 
+	// Check if we need strconv (for parsing int/float/bool parameters)
+	needsStrconv := g.needsStrconvImport()
+
 	sb.WriteString("package api\n\n")
 	sb.WriteString("import (\n")
 	sb.WriteString("\t\"context\"\n")
@@ -34,7 +37,9 @@ func (g *ServerGenerator) Generate() (string, error) {
 	sb.WriteString("\t\"fmt\"\n")
 	sb.WriteString("\t\"io\"\n")
 	sb.WriteString("\t\"net/http\"\n")
-	sb.WriteString("\t\"strconv\"\n")
+	if needsStrconv {
+		sb.WriteString("\t\"strconv\"\n")
+	}
 	sb.WriteString("\n")
 	sb.WriteString("\t\"github.com/christopherklint97/specweaver/pkg/router\"\n")
 	sb.WriteString(")\n\n")
@@ -141,7 +146,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 
 					if param.In == "path" {
 						fieldName := toPascalCase(param.Name)
-						fieldType := g.getParamType(param)
+						fieldType := getParamType(param)
 						if param.Description != "" {
 							sb.WriteString(fmt.Sprintf("\t// %s\n", param.Description))
 						}
@@ -159,7 +164,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 
 					if param.In == "query" {
 						fieldName := toPascalCase(param.Name)
-						fieldType := g.getParamType(param)
+						fieldType := getParamType(param)
 
 						// Query params are optional by default
 						if !param.Required && !strings.HasPrefix(fieldType, "*") {
@@ -179,7 +184,7 @@ func (g *ServerGenerator) generateRequestTypes(sb *strings.Builder) error {
 			if op.RequestBody != nil {
 				content := op.RequestBody.Content
 				if jsonContent, ok := content["application/json"]; ok && jsonContent.Schema != nil {
-					bodyType := g.resolveSchemaType(jsonContent.Schema)
+					bodyType := resolveSchemaType(jsonContent.Schema)
 					sb.WriteString("\t// Request body\n")
 					sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 				}
@@ -258,7 +263,7 @@ func (g *ServerGenerator) generateResponseTypes(sb *strings.Builder) error {
 					hasBody := false
 					if response.Content != nil {
 						if jsonContent, ok := response.Content["application/json"]; ok && jsonContent.Schema != nil {
-							bodyType := g.resolveSchemaType(jsonContent.Schema)
+							bodyType := resolveSchemaType(jsonContent.Schema)
 							sb.WriteString(fmt.Sprintf("\tBody %s `json:\"body\"`\n", bodyType))
 							hasBody = true
 						}
@@ -437,7 +442,7 @@ func (g *ServerGenerator) generateAdapterMethod(sb *strings.Builder, handlerName
 
 // generateParamParsing generates code to parse a parameter
 func (g *ServerGenerator) generateParamParsing(sb *strings.Builder, param *openapi.Parameter, fieldName string, isPath bool) {
-	paramType := g.getParamType(param)
+	paramType := getParamType(param)
 	paramName := param.Name
 
 	// Get parameter value
@@ -790,98 +795,6 @@ func (g *ServerGenerator) generateHelpers(sb *strings.Builder) {
 	sb.WriteString("}\n\n")
 }
 
-// Helper functions
-
-// getParamType returns the Go type for a parameter
-func (g *ServerGenerator) getParamType(param *openapi.Parameter) string {
-	if param.Schema == nil || param.Schema.Value == nil {
-		return "string"
-	}
-
-	schema := param.Schema.Value
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		} else if schema.Format == "int32" {
-			return "int32"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	case "string":
-		return "string"
-	default:
-		return "string"
-	}
-}
-
-// resolveSchemaType resolves a schema reference to a Go type
-func (g *ServerGenerator) resolveSchemaType(schemaRef *openapi.SchemaRef) string {
-	if schemaRef == nil {
-		return "any"
-	}
-
-	// If this is a reference, extract the type name
-	if schemaRef.Ref != "" {
-		parts := strings.Split(schemaRef.Ref, "/")
-		if len(parts) > 0 {
-			typeName := parts[len(parts)-1]
-			return toPascalCase(typeName)
-		}
-	}
-
-	// Otherwise resolve from schema
-	if schemaRef.Value != nil {
-		return g.resolveSchemaTypeFromValue(schemaRef.Value)
-	}
-
-	return "any"
-}
-
-// resolveSchemaTypeFromValue resolves the Go type from a schema value
-func (g *ServerGenerator) resolveSchemaTypeFromValue(schema *openapi.Schema) string {
-	if schema == nil {
-		return "any"
-	}
-
-	schemaType := schema.GetSchemaType()
-
-	switch schemaType {
-	case "array":
-		if schema.Items != nil {
-			itemType := g.resolveSchemaType(schema.Items)
-			return "[]" + itemType
-		}
-		return "[]any"
-	case "object":
-		return "map[string]any"
-	case "string":
-		return "string"
-	case "integer":
-		if schema.Format == "int64" {
-			return "int64"
-		}
-		return "int"
-	case "number":
-		if schema.Format == "float" {
-			return "float32"
-		}
-		return "float64"
-	case "boolean":
-		return "bool"
-	default:
-		return "any"
-	}
-}
-
 // parseStatusCode parses a status code string to int
 // Returns 0 for "default" or invalid codes, which should be filtered out by the caller
 func parseStatusCode(code string) int {
@@ -988,4 +901,38 @@ func getOperationsInOrder(pathItem *openapi.PathItem) []methodOperation {
 	}
 
 	return result
+}
+
+// needsStrconvImport checks if any parameters require strconv for parsing
+func (g *ServerGenerator) needsStrconvImport() bool {
+	if g.spec.Paths == nil {
+		return false
+	}
+
+	for _, pathItem := range g.spec.Paths {
+		operations := getOperationsInOrder(pathItem)
+		for _, methodOp := range operations {
+			op := methodOp.Operation
+			if op.Parameters != nil {
+				for _, param := range op.Parameters {
+					if param == nil || param.Schema == nil || param.Schema.Value == nil {
+						continue
+					}
+
+					// Check if parameter is in path or query (these get parsed)
+					if param.In != "path" && param.In != "query" {
+						continue
+					}
+
+					schemaType := param.Schema.Value.GetSchemaType()
+					// strconv is needed for integer, number, and boolean types
+					if schemaType == "integer" || schemaType == "number" || schemaType == "boolean" {
+						return true
+					}
+				}
+			}
+		}
+	}
+
+	return false
 }
