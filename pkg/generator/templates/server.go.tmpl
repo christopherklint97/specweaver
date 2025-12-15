@@ -1,0 +1,369 @@
+package api
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"net/http"
+{{- if .NeedsStrconv }}
+	"strconv"
+{{- end }}
+
+	"github.com/christopherklint97/specweaver/pkg/router"
+)
+
+// HTTPError represents an HTTP error with a status code
+type HTTPError struct {
+	Code    int
+	Message string
+	Err     error
+}
+
+func (e *HTTPError) Error() string {
+	if e.Err != nil {
+		return fmt.Sprintf("%s: %v", e.Message, e.Err)
+	}
+	return e.Message
+}
+
+func (e *HTTPError) Unwrap() error {
+	return e.Err
+}
+
+// NewHTTPError creates a new HTTPError
+func NewHTTPError(code int, message string) *HTTPError {
+	return &HTTPError{Code: code, Message: message}
+}
+
+// NewHTTPErrorf creates a new HTTPError with formatted message
+func NewHTTPErrorf(code int, format string, args ...any) *HTTPError {
+	return &HTTPError{Code: code, Message: fmt.Sprintf(format, args...)}
+}
+
+// WrapHTTPError wraps an existing error with an HTTP status code
+func WrapHTTPError(code int, err error, message string) *HTTPError {
+	return &HTTPError{Code: code, Message: message, Err: err}
+}
+
+{{- range .RequestTypes }}
+
+// {{ .Name }} represents the request for {{ .HandlerName }}
+type {{ .Name }} struct {
+{{- range .Fields }}
+{{- if .Description }}
+	// {{ .Description }}
+{{- end }}
+	{{ .Name }} {{ .Type }} `json:"{{ .JSONTag }}"`
+{{- end }}
+}
+{{- end }}
+{{- range .ResponseTypes }}
+{{- $resp := . }}
+
+// {{ .InterfaceName }} represents possible responses for {{ .HandlerName }}
+type {{ .InterfaceName }} interface {
+	is{{ .InterfaceName }}()
+	StatusCode() int
+	ResponseBody() any
+}
+{{- range .ConcreteTypes }}
+
+// {{ .Name }} represents a {{ .StatusCode }} response
+type {{ .Name }} struct {
+{{- if .HasBody }}
+	Body {{ .BodyType }} `json:"body"`
+{{- end }}
+}
+
+func (r {{ .Name }}) is{{ $resp.InterfaceName }}() {}
+func (r {{ .Name }}) StatusCode() int { return {{ .StatusCode }} }
+{{- if .HasBody }}
+func (r {{ .Name }}) ResponseBody() any { return r.Body }
+{{- else }}
+func (r {{ .Name }}) ResponseBody() any { return nil }
+{{- end }}
+{{- end }}
+{{- end }}
+
+// Server represents all server handlers
+type Server interface {
+{{- range .Operations }}
+{{- if .Summary }}
+	// {{ .HandlerName }} {{ .Summary }}
+{{- end }}
+	{{ .HandlerName }}(ctx context.Context, req {{ .RequestTypeName }}) ({{ .ResponseTypeName }}, error)
+{{- end }}
+}
+
+// ServerWrapper wraps the Server with HTTP handler logic
+type ServerWrapper struct {
+	Handler Server
+}
+
+{{- range .Operations }}
+
+// handle{{ .HandlerName }} adapts HTTP request to {{ .HandlerName }} handler
+func (w *ServerWrapper) handle{{ .HandlerName }}(rw http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+	req := {{ .RequestTypeName }}{}
+
+{{- range .PathParams }}
+	// Parse path parameter: {{ .ParamName }}
+	{{ .ParamName }}Str := router.URLParam(r, "{{ .ParamName }}")
+{{- if eq .BaseType "string" }}
+	req.{{ .FieldName }} = {{ .ParamName }}Str
+{{- else if or (eq .BaseType "int") (eq .BaseType "int32") (eq .BaseType "int64") }}
+	{{ .ParamName }}Val, err := strconv.ParseInt({{ .ParamName }}Str, 10, {{ .BitSize }})
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+{{- if eq .BaseType "int" }}
+	req.{{ .FieldName }} = int({{ .ParamName }}Val)
+{{- else }}
+	req.{{ .FieldName }} = {{ .BaseType }}({{ .ParamName }}Val)
+{{- end }}
+{{- else if or (eq .BaseType "float32") (eq .BaseType "float64") }}
+	{{ .ParamName }}Val, err := strconv.ParseFloat({{ .ParamName }}Str, {{ .BitSize }})
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+	req.{{ .FieldName }} = {{ .BaseType }}({{ .ParamName }}Val)
+{{- else if eq .BaseType "bool" }}
+	{{ .ParamName }}Val, err := strconv.ParseBool({{ .ParamName }}Str)
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+	req.{{ .FieldName }} = {{ .ParamName }}Val
+{{- end }}
+
+{{- end }}
+{{- range .QueryParams }}
+	// Parse query parameter: {{ .ParamName }}
+	{{ .ParamName }}Str := r.URL.Query().Get("{{ .ParamName }}")
+{{- if .Required }}
+{{- if eq .BaseType "string" }}
+	req.{{ .FieldName }} = {{ .ParamName }}Str
+{{- else if or (eq .BaseType "int") (eq .BaseType "int32") (eq .BaseType "int64") }}
+	{{ .ParamName }}Val, err := strconv.ParseInt({{ .ParamName }}Str, 10, {{ .BitSize }})
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+{{- if eq .BaseType "int" }}
+	req.{{ .FieldName }} = int({{ .ParamName }}Val)
+{{- else }}
+	req.{{ .FieldName }} = {{ .BaseType }}({{ .ParamName }}Val)
+{{- end }}
+{{- else if or (eq .BaseType "float32") (eq .BaseType "float64") }}
+	{{ .ParamName }}Val, err := strconv.ParseFloat({{ .ParamName }}Str, {{ .BitSize }})
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+	req.{{ .FieldName }} = {{ .BaseType }}({{ .ParamName }}Val)
+{{- else if eq .BaseType "bool" }}
+	{{ .ParamName }}Val, err := strconv.ParseBool({{ .ParamName }}Str)
+	if err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid {{ .ParamName }} parameter"))
+		return
+	}
+	req.{{ .FieldName }} = {{ .ParamName }}Val
+{{- end }}
+{{- else }}
+	if {{ .ParamName }}Str != "" {
+{{- if eq .BaseType "string" }}
+		req.{{ .FieldName }} = &{{ .ParamName }}Str
+{{- else if or (eq .BaseType "int") (eq .BaseType "int32") (eq .BaseType "int64") }}
+		{{ .ParamName }}Val, err := strconv.ParseInt({{ .ParamName }}Str, 10, {{ .BitSize }})
+		if err == nil {
+{{- if eq .BaseType "int" }}
+			{{ .ParamName }}Int := int({{ .ParamName }}Val)
+			req.{{ .FieldName }} = &{{ .ParamName }}Int
+{{- else }}
+			{{ .ParamName }}Typed := {{ .BaseType }}({{ .ParamName }}Val)
+			req.{{ .FieldName }} = &{{ .ParamName }}Typed
+{{- end }}
+		}
+{{- else if or (eq .BaseType "float32") (eq .BaseType "float64") }}
+		{{ .ParamName }}Val, err := strconv.ParseFloat({{ .ParamName }}Str, {{ .BitSize }})
+		if err == nil {
+			{{ .ParamName }}Typed := {{ .BaseType }}({{ .ParamName }}Val)
+			req.{{ .FieldName }} = &{{ .ParamName }}Typed
+		}
+{{- else if eq .BaseType "bool" }}
+		{{ .ParamName }}Val, err := strconv.ParseBool({{ .ParamName }}Str)
+		if err == nil {
+			req.{{ .FieldName }} = &{{ .ParamName }}Val
+		}
+{{- end }}
+	}
+{{- end }}
+
+{{- end }}
+{{- if .HasRequestBody }}
+	// Parse request body
+	if err := ReadJSON(r, &req.Body); err != nil {
+		w.handleError(rw, NewHTTPError(http.StatusBadRequest, "invalid request body"))
+		return
+	}
+
+{{- end }}
+	// Call handler
+	resp, err := w.Handler.{{ .HandlerName }}(ctx, req)
+	if err != nil {
+		w.handleError(rw, err)
+		return
+	}
+
+	// Write response
+	WriteResponse(rw, resp)
+}
+{{- end }}
+
+// handleError handles errors and writes appropriate HTTP responses
+func (w *ServerWrapper) handleError(rw http.ResponseWriter, err error) {
+	var httpErr *HTTPError
+	if errors.As(err, &httpErr) {
+		WriteError(rw, httpErr.Code, httpErr)
+		return
+	}
+	// Default to 500 Internal Server Error
+	WriteError(rw, http.StatusInternalServerError, err)
+}
+
+{{- if .HasSecuritySchemes }}
+
+// securitySchemeInfoMap contains information about all security schemes
+var securitySchemeInfoMap = map[string]*SecuritySchemeInfo{
+{{- range .SecuritySchemes }}
+	"{{ .Name }}": {
+		Type:   "{{ .Type }}",
+{{- if .Scheme }}
+		Scheme: "{{ .Scheme }}",
+{{- end }}
+{{- if .In }}
+		In:     "{{ .In }}",
+{{- end }}
+{{- if .ParamName }}
+		Name:   "{{ .ParamName }}",
+{{- end }}
+	},
+{{- end }}
+}
+{{- end }}
+
+// ConfigureRouter configures the given router with all routes.
+// This function allows you to use any router that implements the router.Router interface.
+//
+// The authenticator parameter is optional. If nil, no authentication will be performed.
+// If provided, authentication will be enforced for routes that require it.
+//
+// Example with built-in router:
+//
+//	r := router.NewRouter()
+//	ConfigureRouter(r, myServer, myAuthenticator)
+//
+// Example with custom router:
+//
+//	r := myCustomRouter.New() // Must implement router.Router interface
+//	ConfigureRouter(r, myServer, myAuthenticator)
+{{- if .HasSecuritySchemes }}
+func ConfigureRouter(r router.Router, si Server, authenticator Authenticator) {
+{{- else }}
+func ConfigureRouter(r router.Router, si Server) {
+{{- end }}
+	wrapper := &ServerWrapper{Handler: si}
+
+{{- range .Routes }}
+{{- if .HasSecurity }}
+	r.{{ .Method }}("{{ .Path }}", authMiddleware(authenticator, {{ .SecurityReqs }}, securitySchemeInfoMap)(http.HandlerFunc(wrapper.handle{{ .HandlerName }})).ServeHTTP)
+{{- else }}
+	r.{{ .Method }}("{{ .Path }}", wrapper.handle{{ .HandlerName }})
+{{- end }}
+{{- end }}
+}
+
+// NewRouter creates a new router with all routes configured using the built-in router.
+// For using a custom router, use ConfigureRouter instead.
+{{- if .HasSecuritySchemes }}
+//
+// The authenticator parameter is optional. If nil, no authentication will be performed.
+func NewRouter(si Server, authenticator Authenticator) *router.Mux {
+{{- else }}
+func NewRouter(si Server) *router.Mux {
+{{- end }}
+	r := router.NewRouter()
+
+	// Default middleware
+	r.Use(router.Logger)
+	r.Use(router.Recoverer)
+	r.Use(router.RequestID)
+	r.Use(router.RealIP)
+
+{{- if .HasSecuritySchemes }}
+	ConfigureRouter(r, si, authenticator)
+{{- else }}
+	ConfigureRouter(r, si)
+{{- end }}
+	return r
+}
+
+// Helper functions for request/response handling
+
+// WriteJSON writes a JSON response
+func WriteJSON(w http.ResponseWriter, status int, v any) error {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	return json.NewEncoder(w).Encode(v)
+}
+
+// WriteResponse writes a response based on its type
+func WriteResponse(w http.ResponseWriter, resp any) error {
+	// Extract status code and body using type assertion
+	type responseWriter interface {
+		StatusCode() int
+		ResponseBody() any
+	}
+
+	if rw, ok := resp.(responseWriter); ok {
+		statusCode := rw.StatusCode()
+		body := rw.ResponseBody()
+		// For 204 No Content or nil body, don't write a body
+		if statusCode == http.StatusNoContent || body == nil {
+			w.WriteHeader(statusCode)
+			return nil
+		}
+		return WriteJSON(w, statusCode, body)
+	}
+	// Fallback to 200 OK
+	return WriteJSON(w, http.StatusOK, resp)
+}
+
+// ErrorResponse represents an error response
+type ErrorResponse struct {
+	Error   string `json:"error"`
+	Message string `json:"message,omitempty"`
+}
+
+// WriteError writes an error response
+func WriteError(w http.ResponseWriter, status int, err error) {
+	WriteJSON(w, status, ErrorResponse{
+		Error:   http.StatusText(status),
+		Message: err.Error(),
+	})
+}
+
+// ReadJSON reads and decodes JSON from request body
+func ReadJSON(r *http.Request, v any) error {
+	defer r.Body.Close()
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+	return json.Unmarshal(body, v)
+}

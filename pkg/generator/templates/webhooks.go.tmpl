@@ -1,0 +1,147 @@
+package api
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"io"
+	"net/http"
+)
+
+{{- range .RequestTypes }}
+
+// {{ .Name }} represents the request for {{ .WebhookName }} webhook
+type {{ .Name }} struct {
+	// URL is the webhook destination URL
+	URL string `json:"url"`
+{{- range .Fields }}
+{{- if .Description }}
+	// {{ .Description }}
+{{- end }}
+	{{ .Name }} {{ .Type }} `json:"{{ .JSONTag }}"`
+{{- end }}
+}
+{{- end }}
+{{- range .ResponseTypes }}
+{{- $resp := . }}
+
+// {{ .InterfaceName }} represents possible responses for {{ .WebhookName }} webhook
+type {{ .InterfaceName }} interface {
+	is{{ .InterfaceName }}()
+	StatusCode() int
+	ResponseBody() any
+}
+{{- range .ConcreteTypes }}
+
+// {{ .Name }} represents a {{ .StatusCode }} response from webhook
+type {{ .Name }} struct {
+{{- if .HasBody }}
+	Body {{ .BodyType }} `json:"body"`
+{{- end }}
+}
+
+func (r {{ .Name }}) is{{ $resp.InterfaceName }}() {}
+func (r {{ .Name }}) StatusCode() int { return {{ .StatusCode }} }
+{{- if .HasBody }}
+func (r {{ .Name }}) ResponseBody() any { return r.Body }
+{{- else }}
+func (r {{ .Name }}) ResponseBody() any { return nil }
+{{- end }}
+{{- end }}
+{{- end }}
+
+// WebhookClient represents all webhook senders
+type WebhookClient interface {
+{{- range .Operations }}
+{{- if .Summary }}
+	// {{ .HandlerName }} {{ .Summary }}
+{{- else }}
+	// {{ .HandlerName }} sends the {{ .WebhookName }} webhook
+{{- end }}
+	{{ .HandlerName }}(ctx context.Context, req {{ .RequestTypeName }}) ({{ .ResponseTypeName }}, error)
+{{- end }}
+}
+
+// DefaultWebhookClient is the default HTTP implementation of WebhookClient
+type DefaultWebhookClient struct {
+	HTTPClient *http.Client
+}
+
+// NewWebhookClient creates a new default webhook client
+func NewWebhookClient() *DefaultWebhookClient {
+	return &DefaultWebhookClient{
+		HTTPClient: http.DefaultClient,
+	}
+}
+
+{{- range .Operations }}
+
+// {{ .HandlerName }} sends the {{ .WebhookName }} webhook
+func (c *DefaultWebhookClient) {{ .HandlerName }}(ctx context.Context, req {{ .RequestTypeName }}) ({{ .ResponseTypeName }}, error) {
+{{- if .HasRequestBody }}
+	// Serialize request body
+	body, err := json.Marshal(req.Body)
+	if err != nil {
+		return nil, fmt.Errorf("failed to marshal request body: %w", err)
+	}
+
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "{{ .Method }}", req.URL, bytes.NewReader(body))
+{{- else }}
+	// Create HTTP request
+	httpReq, err := http.NewRequestWithContext(ctx, "{{ .Method }}", req.URL, nil)
+{{- end }}
+	if err != nil {
+		return nil, fmt.Errorf("failed to create request: %w", err)
+	}
+
+{{- if .HasRequestBody }}
+	// Set content type
+	httpReq.Header.Set("Content-Type", "application/json")
+
+{{- end }}
+{{- if .HasHeaders }}
+	// Set custom headers
+{{- range .Headers }}
+{{- if .Required }}
+	httpReq.Header.Set("{{ .HeaderName }}", fmt.Sprintf("%v", req.{{ .FieldName }}))
+{{- else }}
+	if req.{{ .FieldName }} != nil {
+		httpReq.Header.Set("{{ .HeaderName }}", fmt.Sprintf("%v", *req.{{ .FieldName }}))
+	}
+{{- end }}
+{{- end }}
+
+{{- end }}
+	// Send request
+	resp, err := c.HTTPClient.Do(httpReq)
+	if err != nil {
+		return nil, fmt.Errorf("failed to send webhook: %w", err)
+	}
+	defer resp.Body.Close()
+
+	// Parse response based on status code
+	switch resp.StatusCode {
+{{- range .Responses }}
+	case {{ .StatusCode }}:
+{{- if .HasBody }}
+		var result {{ .TypeName }}
+		body, err := io.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("failed to read response body: %w", err)
+		}
+		if err := json.Unmarshal(body, &result.Body); err != nil {
+			return nil, fmt.Errorf("failed to parse response body: %w", err)
+		}
+		return result, nil
+{{- else }}
+		return {{ .TypeName }}{}, nil
+{{- end }}
+{{- end }}
+	default:
+		body, _ := io.ReadAll(resp.Body)
+		return nil, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(body))
+	}
+}
+{{- end }}
