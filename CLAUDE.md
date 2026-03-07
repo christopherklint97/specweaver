@@ -599,9 +599,8 @@ Generated code requires:
 2. **Client Generation**: Generate Go client code
 3. **Custom Templates**: Allow users to customize generated code
 4. **OpenAPI Extensions**: Support vendor extensions (x-*)
-5. **Authentication**: Generate auth middleware from security schemes
-6. **Testing**: Generate test stubs
-7. **Documentation**: Generate Markdown docs from spec
+5. **Testing**: Generate test stubs
+6. **Documentation**: Generate Markdown docs from spec
 
 ## Testing Guidelines
 
@@ -684,7 +683,7 @@ go test -v -run TestFeatureName ./pkg/generator/
 All tests automatically run on:
 - Every pull request
 - Every push to main branch
-- Go version: 1.25.4
+- Go version: 1.24.7
 
 The CI pipeline includes:
 - Unit tests with race detection
@@ -720,3 +719,11 @@ When making changes:
   - Server generation
   - CLI tool
   - Example implementation
+- Post-v0.1.0 additions:
+  - Custom lightweight router (replaced chi dependency)
+  - Library/programmatic API (`specweaver.go`)
+  - Custom router support via pluggable `router.Router` interface
+  - `format: date` mapping to `date.Date`
+  - Authentication middleware generation for all OpenAPI security schemes
+  - Webhook client generation for OpenAPI 3.1+
+  - CI pipeline with GitHub Actions
