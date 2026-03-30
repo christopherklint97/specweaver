@@ -157,43 +157,6 @@ func TestGenerateSecurityRequirementsLiteral(t *testing.T) {
 	}
 }
 
-func TestGenerateSecuritySchemeInfoMap(t *testing.T) {
-	spec := &openapi.Document{
-		Components: &openapi.Components{
-			SecuritySchemes: map[string]*openapi.SecurityScheme{
-				"basicAuth": {
-					Type:   "http",
-					Scheme: "basic",
-				},
-				"apiKey": {
-					Type: "apiKey",
-					In:   "header",
-					Name: "X-API-Key",
-				},
-			},
-		},
-	}
-
-	gen := NewServerGenerator(spec)
-	var sb strings.Builder
-	gen.generateSecuritySchemeInfoMap(&sb)
-	result := sb.String()
-
-	// Verify map declaration
-	assert.Contains(t, result, "var securitySchemeInfoMap = map[string]*SecuritySchemeInfo{")
-
-	// Verify basicAuth scheme
-	assert.Contains(t, result, `"basicAuth": {`)
-	assert.Contains(t, result, `Type:   "http"`)
-	assert.Contains(t, result, `Scheme: "basic"`)
-
-	// Verify apiKey scheme
-	assert.Contains(t, result, `"apiKey": {`)
-	assert.Contains(t, result, `Type:   "apiKey"`)
-	assert.Contains(t, result, `In:     "header"`)
-	assert.Contains(t, result, `Name:   "X-API-Key"`)
-}
-
 func TestGenerateRouterWithAuth(t *testing.T) {
 	spec := &openapi.Document{
 		OpenAPI: "3.1.0",

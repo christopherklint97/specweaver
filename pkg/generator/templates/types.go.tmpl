@@ -1,0 +1,41 @@
+package api
+{{- if or .UsesTime .UsesDate }}
+
+import (
+{{- if .UsesTime }}
+	"time"
+{{- end }}
+{{- if .UsesDate }}
+	date "google.golang.org/genproto/googleapis/type/date"
+{{- end }}
+)
+{{- end }}
+{{- range .Types }}
+{{- $type := . }}
+
+{{- if .Description }}
+// {{ .Name }} {{ .Description }}
+{{- end }}
+{{- if eq .Kind "struct" }}
+type {{ .Name }} struct {
+{{- range .Fields }}
+{{- if .Description }}
+	// {{ .Description }}
+{{- end }}
+	{{ .Name }} {{ .Type }} `json:"{{ .JSONTag }}"`
+{{- end }}
+}
+{{- else if eq .Kind "enum" }}
+type {{ .Name }} string
+
+const (
+{{- range .EnumValues }}
+	{{ .ConstName }} {{ $type.Name }} = "{{ .Value }}"
+{{- end }}
+)
+{{- else if eq .Kind "alias" }}
+type {{ .Name }} {{ .AliasType }}
+{{- else if eq .Kind "array" }}
+type {{ .Name }} []{{ .ItemType }}
+{{- end }}
+{{ end }}

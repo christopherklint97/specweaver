@@ -26,151 +26,150 @@ func NewTypeGenerator(spec *openapi.Document) *TypeGenerator {
 
 // Generate generates Go type definitions from the OpenAPI spec
 func (g *TypeGenerator) Generate() (string, error) {
-	var sb strings.Builder
-
-	sb.WriteString("package api\n\n")
-
 	if g.spec.Components == nil || g.spec.Components.Schemas == nil {
-		return sb.String(), nil
+		return "package api\n", nil
 	}
 
-	// First pass: generate types to determine which imports are needed
-	var typesSB strings.Builder
+	// Build template data
+	data := TypesTemplateData{
+		Types: []TypeDefinition{},
+	}
+
+	// Sort schema names for deterministic output
 	schemaNames := make([]string, 0, len(g.spec.Components.Schemas))
 	for name := range g.spec.Components.Schemas {
 		schemaNames = append(schemaNames, name)
 	}
 	sort.Strings(schemaNames)
 
+	// Generate type definitions
 	for _, name := range schemaNames {
 		schemaRef := g.spec.Components.Schemas[name]
-		if err := g.generateType(&typesSB, name, schemaRef.Value); err != nil {
-			return "", fmt.Errorf("failed to generate type for %s: %w", name, err)
+		typeDef := g.buildTypeDefinition(name, schemaRef.Value)
+		if typeDef != nil {
+			data.Types = append(data.Types, *typeDef)
 		}
 	}
 
-	// Add imports based on what types are used
-	if g.usesTime || g.usesDate {
-		sb.WriteString("import (\n")
-		if g.usesTime {
-			sb.WriteString("\t\"time\"\n")
-		}
-		if g.usesDate {
-			sb.WriteString("\tdate \"google.golang.org/genproto/googleapis/type/date\"\n")
-		}
-		sb.WriteString(")\n\n")
-	}
+	// Set import flags
+	data.UsesTime = g.usesTime
+	data.UsesDate = g.usesDate
 
-	// Write the generated types
-	sb.WriteString(typesSB.String())
-
-	return sb.String(), nil
+	// Execute template
+	return executeTemplate("types.go.tmpl", data)
 }
 
-// generateType generates a Go type from an OpenAPI schema
-func (g *TypeGenerator) generateType(sb *strings.Builder, name string, schema *openapi.Schema) error {
+// buildTypeDefinition builds a TypeDefinition from an OpenAPI schema
+func (g *TypeGenerator) buildTypeDefinition(name string, schema *openapi.Schema) *TypeDefinition {
 	if g.generated[name] {
 		return nil
 	}
 	g.generated[name] = true
 
 	// If schema is nil, this is a reference-only schema (alias)
-	// These don't need type generation - the reference will be resolved when used
 	if schema == nil {
 		return nil
 	}
 
 	typeName := toGoTypeName(name)
 
-	// Add description as comment if available
-	if schema.Description != "" {
-		sb.WriteString(fmt.Sprintf("// %s %s\n", typeName, schema.Description))
+	def := &TypeDefinition{
+		Name:        typeName,
+		Description: schema.Description,
 	}
 
 	schemaType := getSchemaType(schema)
 
 	switch schemaType {
 	case "object", "":
-		g.generateStruct(sb, typeName, schema)
+		def.Kind = "struct"
+		def.Fields = g.buildStructFields(schema)
 	case "string":
 		if len(schema.Enum) > 0 {
-			g.generateEnum(sb, typeName, schema)
+			def.Kind = "enum"
+			def.EnumValues = g.buildEnumValues(typeName, schema)
 		} else {
-			sb.WriteString(fmt.Sprintf("type %s string\n\n", typeName))
+			def.Kind = "alias"
+			def.AliasType = "string"
 		}
 	case "integer", "number":
-		goType := mapOpenAPITypeToGo(schema)
-		sb.WriteString(fmt.Sprintf("type %s %s\n\n", typeName, goType))
+		def.Kind = "alias"
+		def.AliasType = mapOpenAPITypeToGo(schema)
 	case "boolean":
-		sb.WriteString(fmt.Sprintf("type %s bool\n\n", typeName))
+		def.Kind = "alias"
+		def.AliasType = "bool"
 	case "array":
 		if schema.Items != nil {
-			itemType := g.resolveType(schema.Items.Value)
-			sb.WriteString(fmt.Sprintf("type %s []%s\n\n", typeName, itemType))
+			def.Kind = "array"
+			def.ItemType = g.resolveType(schema.Items.Value)
 		}
 	}
 
-	return nil
+	return def
 }
 
-// generateStruct generates a Go struct from an object schema
-func (g *TypeGenerator) generateStruct(sb *strings.Builder, name string, schema *openapi.Schema) {
-	sb.WriteString(fmt.Sprintf("type %s struct {\n", name))
-
-	if schema.Properties != nil {
-		// Sort property names for deterministic output
-		propNames := make([]string, 0, len(schema.Properties))
-		for propName := range schema.Properties {
-			propNames = append(propNames, propName)
-		}
-		sort.Strings(propNames)
-
-		for _, propName := range propNames {
-			propRef := schema.Properties[propName]
-			propSchema := propRef.Value
-			fieldName := toGoFieldName(propName)
-
-			// Check if this is a reference to a component schema
-			fieldType := g.resolveTypeWithRef(propRef)
-
-			// Check if field is required
-			isRequired := contains(schema.Required, propName)
-			if !isRequired && !isPrimitiveType(fieldType) {
-				fieldType = "*" + fieldType
-			}
-
-			// Add JSON tags
-			jsonTag := propName
-			if !isRequired {
-				jsonTag += ",omitempty"
-			}
-
-			// Add field comment if description exists
-			// propSchema may be nil for reference-only properties
-			if propSchema != nil && propSchema.Description != "" {
-				sb.WriteString(fmt.Sprintf("\t// %s\n", propSchema.Description))
-			}
-
-			sb.WriteString(fmt.Sprintf("\t%s %s `json:\"%s\"`\n", fieldName, fieldType, jsonTag))
-		}
+// buildStructFields builds field definitions for a struct
+func (g *TypeGenerator) buildStructFields(schema *openapi.Schema) []FieldDefinition {
+	if schema.Properties == nil {
+		return nil
 	}
 
-	sb.WriteString("}\n\n")
+	// Sort property names for deterministic output
+	propNames := make([]string, 0, len(schema.Properties))
+	for propName := range schema.Properties {
+		propNames = append(propNames, propName)
+	}
+	sort.Strings(propNames)
+
+	fields := make([]FieldDefinition, 0, len(propNames))
+	for _, propName := range propNames {
+		propRef := schema.Properties[propName]
+		propSchema := propRef.Value
+
+		fieldName := toGoFieldName(propName)
+		fieldType := g.resolveTypeWithRef(propRef)
+
+		// Check if field is required
+		isRequired := contains(schema.Required, propName)
+		if !isRequired && !isPrimitiveType(fieldType) {
+			fieldType = "*" + fieldType
+		}
+
+		// Build JSON tag
+		jsonTag := propName
+		if !isRequired {
+			jsonTag += ",omitempty"
+		}
+
+		field := FieldDefinition{
+			Name:    fieldName,
+			Type:    fieldType,
+			JSONTag: jsonTag,
+		}
+
+		// Add description if available
+		if propSchema != nil && propSchema.Description != "" {
+			field.Description = propSchema.Description
+		}
+
+		fields = append(fields, field)
+	}
+
+	return fields
 }
 
-// generateEnum generates Go constants for enum values
-func (g *TypeGenerator) generateEnum(sb *strings.Builder, name string, schema *openapi.Schema) {
-	sb.WriteString(fmt.Sprintf("type %s string\n\n", name))
-	sb.WriteString("const (\n")
-
+// buildEnumValues builds enum value definitions
+func (g *TypeGenerator) buildEnumValues(typeName string, schema *openapi.Schema) []EnumValue {
+	values := make([]EnumValue, 0, len(schema.Enum))
 	for _, value := range schema.Enum {
 		if strVal, ok := value.(string); ok {
-			constName := toGoConstName(name, strVal)
-			sb.WriteString(fmt.Sprintf("\t%s %s = \"%s\"\n", constName, name, strVal))
+			values = append(values, EnumValue{
+				ConstName: toGoConstName(typeName, strVal),
+				Value:     strVal,
+			})
 		}
 	}
-
-	sb.WriteString(")\n\n")
+	return values
 }
 
 // resolveTypeWithRef resolves the Go type from a schema reference
@@ -357,4 +356,9 @@ func isPrimitiveType(t string) bool {
 		}
 	}
 	return false
+}
+
+// Ensure the Generate method returns an error for template issues
+func (g *TypeGenerator) generateError(format string, args ...any) error {
+	return fmt.Errorf(format, args...)
 }
